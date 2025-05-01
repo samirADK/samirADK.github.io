@@ -849,81 +849,63 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if elements exist before accessing them
+            // --- Theme Toggle ---
             const checkbox = document.getElementById('checkbox');
             const themeOverlay = document.getElementById('themeOverlay');
-            const backToTopBtn = document.getElementById('backToTopBtn');
-            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-            const mobileMenu = document.getElementById('mobileMenu');
 
-            if (!checkbox) {
-                console.error('Theme checkbox not found in the document');
-                return;
-            }
-
-            // Function to show theme transition overlay
             function showThemeTransition() {
                 if (themeOverlay) {
-                    themeOverlay.style.display = 'block'; // Ensure it's visible
+                    themeOverlay.style.display = 'block';
                     themeOverlay.style.opacity = '1';
                     setTimeout(() => {
                         themeOverlay.style.opacity = '0';
                         setTimeout(() => {
                             themeOverlay.style.display = 'none';
-                        }, 500); // Hide after fade out
+                        }, 500);
                     }, 500);
                 }
             }
 
-            // Function to set the theme
             function setTheme(theme) {
                 document.documentElement.setAttribute('data-theme', theme);
-                localStorage.setItem('theme', theme); // Store theme in local storage
-
-                // Also add/remove a class from body for additional styling hooks
-                if (theme === 'dark') {
-                    document.body.classList.add('dark-theme');
-                    document.body.classList.remove('light-theme');
-                } else {
-                    document.body.classList.add('light-theme');
-                    document.body.classList.remove('dark-theme');
-                }
+                localStorage.setItem('theme', theme);
             }
 
-            // Theme switch listener
-            checkbox.addEventListener('change', () => {
-                const theme = checkbox.checked ? 'dark' : 'light';
-                showThemeTransition(); // Show transition
-                setTheme(theme);
-            });
-
-            // Load theme from local storage
-            const storedTheme = localStorage.getItem('theme');
-
-            // Initialize the theme based on local storage or system preference
-            if (storedTheme) {
-                setTheme(storedTheme);
-                checkbox.checked = storedTheme === 'dark';
-            } else {
-                // Check prefers-color-scheme if no theme is stored
-                const prefersDark = window.matchMedia &&
-                    window.matchMedia('(prefers-color-scheme: dark)').matches;
-                const initialTheme = prefersDark ? 'dark' : 'light';
-                setTheme(initialTheme);
-                checkbox.checked = initialTheme === 'dark';
-            }
-             // Back to top button visibility
-             if (backToTopBtn) {
-                window.addEventListener('scroll', () => {
-                    if (window.pageYOffset > 300) {
-                        backToTopBtn.classList.add('visible');
-                    } else {
-                        backToTopBtn.classList.remove('visible');
-                    }
+            if (checkbox) {
+                checkbox.addEventListener('change', () => {
+                    const theme = checkbox.checked ? 'dark' : 'light';
+                    showThemeTransition();
+                    setTheme(theme);
                 });
             }
-             // Mobile menu toggle
-             if (mobileMenuBtn && mobileMenu) {
+
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme) {
+                setTheme(storedTheme);
+                if (checkbox) checkbox.checked = storedTheme === 'dark';
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                setTheme('dark');
+                if (checkbox) checkbox.checked = true;
+            }
+
+             // --- Back to Top Button ---
+             const backToTopBtn = document.getElementById('backToTopBtn');
+            if (backToTopBtn) {
+                window.addEventListener('scroll', () => {
+                    backToTopBtn.classList.toggle('visible', window.pageYOffset > 300);
+                });
+
+                backToTopBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            }
+
+            // --- Mobile Menu ---
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+
+            if (mobileMenuBtn && mobileMenu) {
                 mobileMenuBtn.addEventListener('click', () => {
                     mobileMenu.classList.toggle('active');
                 });
