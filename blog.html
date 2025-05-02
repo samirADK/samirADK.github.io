@@ -757,54 +757,8 @@
         </div>
     </section>
 
-    <!-- Footer -->
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-logo">
-                    <h3>Samir Adhikari</h3>
-                    <p>A blog dedicated to sharing AWS insights, DevOps practices, and cloud solution strategies.</p>
-                </div>
-                <div class="footer-links">
-                    <h4>Quick Links</h4>
-                    <ul>
-                        <li><a href="/">Home</a></li>
-                        <li><a href="/blog.html">Blog</a></li>
-                    </ul>
-                </div>
-                <div class="footer-links">
-                    <h4>Categories</h4>
-                    <ul>
-                        <li><a href="#">AWS</a></li>
-                        <li><a href="#">DevOps</a></li>
-                        <li><a href="#">Cloud Solutions</a></li>
-                    </ul>
-                </div>
-                <div class="footer-links">
-                    <h4>Contact</h4>
-                    <ul>
-                        <li><a href="mailto:samir.adhhh@email.com">samir.adhhh@gmail.com</a></li>
-                            <li><a href="#">9861762422</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="footer-divider"></div>
-            <div class="footer-bottom">
-                <div class="copyright">© 2025 Samir Adhikari. All rights reserved.</div>
-                <div class="footer-social">
-                    <a href="#"><i class="fab fa-facebook-f"></i></a>
-                    <a href="#"><i class="fab fa-twitter"></i></a>
-                    <a href="#"><i class="fab fa-instagram"></i></a>
-                    <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                </div>
-            </div>
-        </div>
-    </footer>
-
-     <!-- Back to top button -->
-     <a href="#" class="back-to-top" id="backToTopBtn">
-        <i class="fas fa-arrow-up"></i>
-    </a>
+    <!-- Footer Inclusion Point -->
+    <div id="footer-container"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -869,6 +823,30 @@
                     mobileMenu.classList.toggle('active');
                 });
             }
+
+            // Function to load and insert the footer
+            function loadFooter() {
+                fetch('footer.html')
+                    .then(response => response.text())
+                    .then(data => {
+                        document.getElementById('footer-container').innerHTML = data;
+
+                        // Re-attach the back-to-top event listener after the footer has been loaded
+                        const backToTopBtn = document.getElementById('backToTopBtn');
+                        if (backToTopBtn) {
+                            backToTopBtn.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                window.scrollTo({
+                                    top: 0,
+                                    behavior: 'smooth'
+                                });
+                            });
+                        }
+                    });
+            }
+
+            // Load the footer when the page loads
+            loadFooter();
         });
     </script>
 

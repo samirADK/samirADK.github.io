@@ -5,13 +5,268 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Samir Adhikari</title>
     <link rel="icon" href="https://img.icons8.com/emoji/48/purple-circle-emoji.png" type="image/png">
-    <link rel="icon" href="https://img.icons8.com/emoji/48/purple-circle-emoji.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+/* ===== ANIMATIONS CSS ===== */
 
+/* Reveal animations for page sections */
+.reveal-animation {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  
+  .reveal-animation.active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  /* Staggered fade-in for social icons and nav links */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .social-icons a, .nav-links li {
+    opacity: 0;
+    animation: fadeInUp 0.5s ease forwards;
+  }
+  
+  .social-icons a:nth-child(1) { animation-delay: 0.1s; }
+  .social-icons a:nth-child(2) { animation-delay: 0.2s; }
+  .social-icons a:nth-child(3) { animation-delay: 0.3s; }
+  .social-icons a:nth-child(4) { animation-delay: 0.4s; }
+  
+  .nav-links li:nth-child(1) { animation-delay: 0.1s; }
+  .nav-links li:nth-child(2) { animation-delay: 0.2s; }
+  
+  /* Animated gradient background for hero */
+  .hero::after {
+    animation: gradientShift 15s ease infinite alternate;
+  }
+  
+  @keyframes gradientShift {
+    0% {
+      opacity: 0.05;
+      transform: translate(0, 0) scale(1);
+    }
+    50% {
+      opacity: 0.08;
+      transform: translate(-50px, 20px) scale(1.05);
+    }
+    100% {
+      opacity: 0.05;
+      transform: translate(0, 0) scale(1);
+    }
+  }
+  
+  /* Text reveal animation for hero heading */
+  @keyframes textReveal {
+    0% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .text-reveal-container {
+    overflow: hidden;
+    display: inline-block;
+  }
+  
+  .text-reveal {
+    display: inline-block;
+    transform: translateY(100%);
+    animation: textReveal 0.8s cubic-bezier(0.5, 0, 0.1, 1) forwards;
+  }
+  
+  .text-reveal-delay-1 {
+    animation-delay: 0.1s;
+  }
+  
+  .text-reveal-delay-2 {
+    animation-delay: 0.2s;
+  }
+  
+  .text-reveal-delay-3 {
+    animation-delay: 0.3s;
+  }
+  
+  /* Subtle hover effects for interactive elements */
+  .nav-links a, .footer-links a {
+    position: relative;
+    transition: transform 0.3s ease, color 0.3s ease;
+  }
+  
+  .nav-links a:hover, .footer-links a:hover {
+    transform: translateX(5px);
+  }
+  
+  /* Button animations */
+  .subscribe-form button {
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                box-shadow 0.3s ease,
+                background-color 0.3s ease;
+  }
+  
+  .subscribe-form button:hover {
+    transform: translateY(-3px) scale(1.02);
+  }
+  
+  .subscribe-form button:active {
+    transform: translateY(-1px) scale(0.99);
+  }
+  
+  /* Animated profile image border */
+  @keyframes borderPulse {
+    0%, 100% {
+      box-shadow: 0 0 0 5px var(--accent-muted);
+    }
+    50% {
+      box-shadow: 0 0 0 8px var(--accent-muted);
+    }
+  }
+  
+  .profile-image {
+    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  
+  .profile-image:hover {
+    transform: scale(1.03);
+    animation: borderPulse 2s infinite;
+  }
+  
+  /* Mobile menu animation */
+  .mobile-menu {
+    transition: height 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                opacity 0.4s ease;
+  }
+  
+  .mobile-menu.active {
+    animation: slideDown 0.4s forwards;
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      height: 0;
+    }
+    to {
+      opacity: 1;
+      height: 200px;
+    }
+  }
+  
+  /* Hamburger menu animation */
+  .mobile-menu-btn span {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+  
+  .mobile-menu-btn.active span:nth-child(1) {
+    transform: translateY(9px) rotate(45deg);
+  }
+  
+  .mobile-menu-btn.active span:nth-child(2) {
+    opacity: 0;
+  }
+  
+  .mobile-menu-btn.active span:nth-child(3) {
+    transform: translateY(-9px) rotate(-45deg);
+  }
+  
+  /* Page transition animation */
+  .page-transition {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-primary);
+    z-index: 9999;
+    transform: translateY(100%);
+  }
+  
+  .page-transition.active {
+    animation: pageTransition 1s cubic-bezier(0.77, 0, 0.175, 1) forwards;
+  }
+  
+  @keyframes pageTransition {
+    0% {
+      transform: translateY(100%);
+    }
+    100% {
+      transform: translateY(0%);
+    }
+  }
+  
+  /* Mouse trail effect */
+  .cursor-trail {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  
+  /* Logo animation */
+  .logo {
+    position: relative;
+  }
+  
+  .logo::before {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .logo:hover::before {
+    transform: scale(1.5);
+    box-shadow: 0 0 15px var(--accent-color);
+  }
+  
+  /* Theme switch animation */
+  .slider:before {
+    transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  }
+  
+  input:checked + .slider:before {
+    transform: translateX(28px) rotate(360deg);
+  }
+  
+  /* Card hover effects */
+  .hover-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .hover-card:hover {
+    transform: translateY(-10px);
+    box-shadow: var(--shadow-md), var(--neon-glow);
+  }
+  
+  /* Scroll indicator */
+  .scroll-indicator {
+    height: 3px;
+    background: var(--gradient-1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    width: 0%;
+    transition: width 0.1s ease;
+  }
         /* Theme variables moved to html[data-theme="light"] and html[data-theme="dark"] */
         html[data-theme="light"] {
             --bg-primary: #f8f8f8;
@@ -1066,55 +1321,12 @@
                 </div>
             </div>
         </section>
-        
-        <!-- Footer -->
-        <footer>
-            <div class="container">
-                <div class="footer-content">
-                    <div class="footer-logo">
-                        <h3>Samir Adhikari</h3>
-                        <p>A blog dedicated to sharing AWS insights, DevOps practices, and cloud solution strategies.</p>
-                    </div>
-                    <div class="footer-links">
-                        <h4>Quick Links</h4>
-                        <ul>
-                            <li><a href="#">Home</a></li>
-                            <li><a href="/blog.html">Blog</a></li>
-                        </ul>
-                    </div>
-                    <div class="footer-links">
-                        <h4>Categories</h4>
-                        <ul>
-                            <li><a href="#">AWS</a></li>
-                            <li><a href="#">DevOps</a></li>
-                            <li><a href="#">Cloud Solutions</a></li>
-                        </ul>
-                    </div>
-                    <div class="footer-links">
-                        <h4>Contact</h4>
-                        <ul>
-                            <li><a href="mailto:samir.adhhh@email.com">samir.adhhh@gmail.com</a></li>
-                            <li><a href="#">9861762422</a></li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="footer-divider"></div>
-                <div class="footer-bottom">
-                    <div class="copyright">© 2025 Samir Adhikari. All rights reserved.</div>
-                    <div class="footer-social">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                    </div>
-                </div>
-            </div>
-        </footer>
-        
-        <!-- Back to top button -->
-        <a href="#" class="back-to-top" id="backToTopBtn">
-            <i class="fas fa-arrow-up"></i>
-        </a>
+
+      
+
+        <!-- Footer Inclusion Point -->
+        <div id="footer-container"></div>
+
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 // Get DOM elements
@@ -1124,6 +1336,19 @@
                 const mobileMenuBtn = document.getElementById('mobileMenuBtn');
                 const mobileMenu = document.getElementById('mobileMenu');
                 
+                // Create scroll indicator
+                const scrollIndicator = document.createElement('div');
+                scrollIndicator.className = 'scroll-indicator';
+                document.body.appendChild(scrollIndicator);
+                
+                // Update scroll indicator width on scroll
+                window.addEventListener('scroll', () => {
+                    const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+                    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                    const scrolled = (winScroll / height) * 100;
+                    scrollIndicator.style.width = scrolled + '%';
+                });
+                
                 // Function to show theme transition overlay
                 function showThemeTransition() {
                     if (themeOverlay) {
@@ -1131,7 +1356,7 @@
                         // Force reflow to ensure the display change takes effect before the opacity transition
                         themeOverlay.offsetHeight;
                         themeOverlay.style.opacity = '1';
-                        
+            
                         setTimeout(() => {
                             themeOverlay.style.opacity = '0';
                             setTimeout(() => {
@@ -1140,19 +1365,19 @@
                         }, 500);
                     }
                 }
-                
+            
                 // Function to set the theme
                 function setTheme(theme) {
                     // Set theme on the html element instead of body or :root
                     document.documentElement.setAttribute('data-theme', theme);
                     localStorage.setItem('theme', theme);
-                    
+            
                     // Update checkbox state to match the theme
                     if (checkbox) {
                         checkbox.checked = theme === 'dark';
                     }
                 }
-                
+            
                 // Theme switch listener
                 if (checkbox) {
                     checkbox.addEventListener('change', () => {
@@ -1161,21 +1386,21 @@
                         setTheme(theme);
                     });
                 }
-                
+            
                 // Initialize theme on page load
                 const storedTheme = localStorage.getItem('theme');
-                
+            
                 if (storedTheme) {
                     // Use stored theme
                     setTheme(storedTheme);
                 } else {
                     // Use system preference if no stored theme
-                    const prefersDark = window.matchMedia && 
+                    const prefersDark = window.matchMedia &&
                                       window.matchMedia('(prefers-color-scheme: dark)').matches;
                     const initialTheme = prefersDark ? 'dark' : 'light';
                     setTheme(initialTheme);
                 }
-                
+            
                 // Back to top button visibility
                 if (backToTopBtn) {
                     window.addEventListener('scroll', () => {
@@ -1185,7 +1410,7 @@
                             backToTopBtn.classList.remove('visible');
                         }
                     });
-                    
+            
                     // Add click event listener for back to top button
                     backToTopBtn.addEventListener('click', (e) => {
                         e.preventDefault();
@@ -1195,14 +1420,148 @@
                         });
                     });
                 }
-                
-                // Mobile menu toggle
+            
+                // Mobile menu toggle with animation
                 if (mobileMenuBtn && mobileMenu) {
                     mobileMenuBtn.addEventListener('click', () => {
                         mobileMenu.classList.toggle('active');
+                        mobileMenuBtn.classList.toggle('active');
                     });
                 }
+            
+                // Function to load and insert the footer
+                function loadFooter() {
+                    fetch('footer.html')
+                        .then(response => response.text())
+                        .then(data => {
+                            document.getElementById('footer-container').innerHTML = data;
+            
+                            // Re-attach the back-to-top event listener after the footer has been loaded
+                            const backToTopBtn = document.getElementById('backToTopBtn');
+                            if (backToTopBtn) {
+                                backToTopBtn.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    window.scrollTo({
+                                        top: 0,
+                                        behavior: 'smooth'
+                                    });
+                                });
+                            }
+                            
+                            // Initialize any elements that need animation in the footer
+                            initAnimations();
+                        });
+                }
+            
+                // Load the footer when the page loads
+                loadFooter();
+                
+                // Add scroll reveal animations
+                function initAnimations() {
+                    // Add reveal-animation class to sections that should animate in
+                    const sections = document.querySelectorAll('.hero, .newsletter, footer .footer-content');
+                    sections.forEach(section => {
+                        if (!section.classList.contains('reveal-animation')) {
+                            section.classList.add('reveal-animation');
+                        }
+                    });
+                    
+                    // Wrap hero heading text in reveal animation containers
+                    const heroTitle = document.querySelector('.hero h1');
+                    if (heroTitle && !heroTitle.querySelector('.text-reveal')) {
+                        const titleText = heroTitle.innerHTML;
+                        // Replace the content with wrapped spans for animation
+                        const wrappedText = titleText.replace(
+                            /Hello, I'm <span>Samir Adhikari<\/span>/,
+                            '<div class="text-reveal-container"><span class="text-reveal text-reveal-delay-1">Hello, </span></div> ' +
+                            '<div class="text-reveal-container"><span class="text-reveal text-reveal-delay-2">I\'m </span></div> ' +
+                            '<div class="text-reveal-container"><span class="text-reveal text-reveal-delay-3 accent-color">Samir Adhikari</span></div>'
+                        );
+                        heroTitle.innerHTML = wrappedText;
+                    }
+                    
+                    // Check for elements in viewport and add active class
+                    checkRevealAnimations();
+                }
+                
+                // Function to check if element is in viewport
+                function isInViewport(element) {
+                    const rect = element.getBoundingClientRect();
+                    return (
+                        rect.top <= (window.innerHeight || document.documentElement.clientHeight) * 0.85
+                    );
+                }
+                
+                // Function to check and activate reveal animations
+                function checkRevealAnimations() {
+                    const elements = document.querySelectorAll('.reveal-animation');
+                    elements.forEach(element => {
+                        if (isInViewport(element)) {
+                            element.classList.add('active');
+                        }
+                    });
+                }
+                
+                // Listen for scroll to trigger animations
+                window.addEventListener('scroll', checkRevealAnimations);
+                
+                // Cursor trail effect
+                function createCursorTrail() {
+                    const trail = document.createElement('div');
+                    trail.className = 'cursor-trail';
+                    document.body.appendChild(trail);
+                    
+                    setTimeout(() => {
+                        trail.style.opacity = '0';
+                        setTimeout(() => {
+                            trail.remove();
+                        }, 500);
+                    }, 500);
+                    
+                    return trail;
+                }
+                
+                // Track mouse movement for cursor trail
+                document.addEventListener('mousemove', (e) => {
+                    if (Math.random() > 0.92) { // Only create trails occasionally
+                        const trail = createCursorTrail();
+                        trail.style.left = e.pageX + 'px';
+                        trail.style.top = e.pageY + 'px';
+                    }
+                });
+                
+                // Page transition effect for links
+                const internalLinks = document.querySelectorAll('a[href^="/"]:not([target="_blank"])');
+                internalLinks.forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        const href = this.getAttribute('href');
+                        
+                        // Skip if modifier keys are pressed or it's an anchor link
+                        if (e.metaKey || e.ctrlKey || href.startsWith('/#')) return;
+                        
+                        e.preventDefault();
+                        
+                        // Create and animate page transition overlay
+                        const transition = document.createElement('div');
+                        transition.className = 'page-transition';
+                        document.body.appendChild(transition);
+                        
+                        // After small delay, add active class to start animation
+                        setTimeout(() => {
+                            transition.classList.add('active');
+                            
+                            // When animation completes, navigate to new page
+                            setTimeout(() => {
+                                window.location.href = href;
+                            }, 800);
+                        }, 10);
+                    });
+                });
+                
+                // Run initial animations
+                initAnimations();
+                checkRevealAnimations();
             });
-    </script>
-        </body>
+        </script>
+    </body>
 </html>
