@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://img.icons8.com/ios-filled/50/000000/infinity.png" type="image/png">
+    <title>Docker to ECS: Containerizing a PHP App for Cloud Deployment - Samir Adhikari</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+        /* Light Theme Variables (Copied from Landing Page) */
+        :root {
+            --bg-primary: #f8f8f8;
+            --bg-secondary: #ffffff;
+            --bg-accent: #f0f0f0;
+            --text-primary: #222222;
+            --text-secondary: #555555;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.2);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.2);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.2);
+            --card-border: 1px solid #e0e0e0;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.3), 0 0 20px rgba(110, 86, 207, 0.1);
+            --header-bg: rgba(255, 255, 255, 0.9);
+            --switch-bg: #e0e0e0;
+            --switch-thumb: #ffffff;
+            --switch-icon-color: #6e56cf;
+            --footer-divider: #e0e0e0;
+            --scrollbar-track: #f0f0f0;
+            --scrollbar-thumb: #cccccc;
+        }
+
+        /* Dark Theme Variables (Copied from Landing Page) */
+        :root[data-theme="dark"] {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #161616;
+            --bg-accent: #1e1e1e;
+            --text-primary: #f8f8f8;
+            --text-secondary: #bebebe;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.3);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #1e1e1e 0%, #3b3b3b 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+            --card-border: 1px solid #2a2a2a;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+            --header-bg: rgba(15, 15, 15, 0.9);
+            --switch-bg: #333333;
+            --switch-thumb: #6e56cf;
+            --switch-icon-color: #ffffff;
+            --footer-divider: #2a2a2a;
+            --scrollbar-track: #161616;
+            --scrollbar-thumb: #333333;
+        }
+
+        /* General Styles (Copied from Landing Page) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        h1, h2, h3, h4, h5 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header (Copied from Landing Page) */
+        header {
+            background-color: var(--header-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0 20px;
+            border-bottom: var(--card-border);
+            transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+        }
+
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: color 0.5s ease;
+        }
+
+        .logo::before {
+            content: "";
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 10px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: var(--shadow-glow);
+            transition: background-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+        }
+
+        .nav-links li {
+            margin-left: 40px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 16px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--accent-color);
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-color);
+            text-shadow: var(--neon-glow);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Theme Switch (Copied from Landing Page) */
+        .theme-switch-wrapper {
+            display: flex;
+            align-items: center;
+            margin-left: 30px;
+            position: relative;
+        }
+
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 32px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--switch-bg);
+            transition: .4s;
+            border-radius: 34px;
+            overflow: hidden;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 4px;
+            bottom: 4px;
+            background-color: var(--switch-thumb);
+            transition: .4s;
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        /* Switch icons */
+        .slider .switch-icon {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1;
+            color: var(--switch-icon-color);
+            transition: opacity 0.3s, transform 0.5s;
+        }
+
+        .slider .sun-icon {
+            right: 9px;
+            opacity: 1;
+        }
+
+        .slider .moon-icon {
+            left: 7px;
+            opacity: 0;
+        }
+
+        input:checked + .slider .sun-icon {
+            opacity: 0;
+        }
+
+        input:checked + .slider .moon-icon {
+            opacity: 1;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(28px);
+            background-color: var(--accent-color);
+        }
+
+
+        /* Blog Post Styles */
+        .blog-post {
+            padding: 80px 0;
+        }
+
+        .blog-post-title {
+            font-size: 42px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-meta {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 40px;
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-meta span {
+            margin: 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .blog-post-meta i {
+            color: var(--accent-color);
+        }
+
+        .blog-post-image {
+            max-width: 800px;
+            margin: 0 auto 40px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .blog-post-image img {
+            width: 100%;
+            display: block;
+        }
+
+        .blog-post-content {
+            max-width: 800px;
+            margin: 0 auto;
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-content h2 {
+            font-size: 32px;
+            margin: 40px 0 20px;
+        }
+
+        .blog-post-content h3 {
+            font-size: 26px;
+            margin: 30px 0 15px;
+        }
+
+        .blog-post-content p {
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content ul,
+        .blog-post-content ol {
+            padding-left: 30px;
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content li {
+            margin-bottom: 10px;
+        }
+
+        .blog-post-content a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .blog-post-content a:hover {
+            color: var(--accent-hover);
+        }
+
+        .blog-post-content blockquote {
+            border-left: 5px solid var(--accent-color);
+            padding: 15px 20px;
+            margin: 30px 0;
+            background-color: var(--bg-accent);
+            border-radius: 5px;
+            font-style: italic;
+            color: var(--text-secondary);
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+         /* Code Block Styling */
+        .code-block {
+            background-color: var(--bg-accent);
+            color: var(--text-primary);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto; /* Enable horizontal scrolling for long lines */
+            font-family: monospace;
+            font-size: 16px;
+            margin: 20px 0;
+            border: 1px solid var(--card-border);
+            transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
+        }
+
+        .code-block pre {
+            white-space: pre-wrap; /* Allows code to wrap */
+        }
+
+        /*Mobile Menu */
+         .mobile-menu-btn {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 30px;
+            height: 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 20px;
+        }
+
+        .mobile-menu-btn span {
+            height: 2px;
+            width: 100%;
+            background-color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu {
+            position: fixed;
+            top: 80px;
+            left: 0;
+            width: 100%;
+            height: 0;
+            background-color: var(--bg-secondary);
+            overflow: hidden;
+            transition: height 0.3s ease;
+            z-index: 99;
+            opacity: 0;
+        }
+
+        .mobile-menu.active {
+            height: auto;
+            opacity: 1;
+            box-shadow: var(--shadow-md);
+            border-bottom: var(--card-border);
+        }
+
+        .mobile-menu ul {
+            list-style: none;
+            padding: 20px;
+        }
+
+        .mobile-menu li {
+            margin: 15px 0;
+        }
+
+        .mobile-menu a {
+            font-size: 18px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.3s;
+            display: block;
+            padding: 10px 0;
+        }
+
+        .mobile-menu a:hover {
+            color: var(--accent-color);
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: flex;
+            }
+        }
+
+        /* Footer (Copied from Landing Page) */
+        footer {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 80px 0 40px;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 50px;
+        }
+
+        .footer-logo {
+            flex: 0 0 30%;
+        }
+
+        .footer-logo h3 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-logo p {
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            font-size: 15px;
+            transition: color 0.5s ease;
+        }
+
+        .footer-links {
+            flex: 0 0 20%;
+        }
+
+        .footer-links h4 {
+            font-size: 20px;
+            margin-bottom: 25px;
+            position: relative;
+            padding-bottom: 12px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-links h4::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--accent-color);
+        }
+
+        .footer-links ul {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 12px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-color);
+        }
+
+        .footer-divider {
+            height: 1px;
+            background-color: var(--footer-divider);
+            margin: 20px 0;
+            transition: background-color 0.5s ease;
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copyright {
+            color: var(--text-secondary);
+            font-size: 14px;
+            transition: color 0.5s ease;
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 15px;
+        }
+
+        .footer-social a {
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-accent);
+            border-radius: 50%;
+            border: var(--card-border);
+            color: var(--text-secondary);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .footer-social a:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-color);
+            border-radius: 50%;
+            transform: scale(0);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: -1;
+        }
+
+        .footer-social a:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
+            border-color: var(--accent-color);
+        }
+
+        .footer-social a i {
+            position: relative;
+            z-index: 2;
+        }
+         /* Back to top button */
+         .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s, opacity 0.5s, transform 0.5s;
+            z-index: 99;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .back-to-top:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: var(--shadow-glow);
+        }
+         /* Theme transition overlay */
+         .theme-transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-primary);
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+         /* Custom scrollbar */
+         ::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+            border-radius: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 6px;
+            border: 3px solid var(--scrollbar-track);
+            transition: background-color 0.5s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+          /* Prefers color scheme media query */
+        @media (prefers-color-scheme: dark) {
+            body:not([data-theme-forced="light"]) {
+                --bg-primary: #0f0f0f;
+                --bg-secondary: #161616;
+                --bg-accent: #1e1e1e;
+                --text-primary: #f8f8f8;
+                --text-secondary: #bebebe;
+                --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+                --card-border: 1px solid #2a2a2a;
+                --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+                --header-bg: rgba(15, 15, 15, 0.9);
+                --switch-bg: #333333;
+                --switch-thumb: #6e56cf;
+                --switch-icon-color: #ffffff;
+                --footer-divider: #2a2a2a;
+                --scrollbar-track: #161616;
+                --scrollbar-thumb: #333333;
+            }
+        }
+         /* Responsive Design (Adapted from Landing Page) */
+         @media (max-width: 992px) {
+            .footer-content {
+                flex-wrap: wrap;
+                gap: 40px;
+            }
+
+            .footer-logo {
+                flex: 0 0 100%;
+                margin-bottom: 20px;
+            }
+
+            .footer-links {
+                flex: 0 0 calc(50% - 20px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .footer-bottom {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu-btn {
+                display: flex;
+            }
+
+        }
+    </style>
+</head>
+<body data-theme="light">
+
+    <!-- Theme transition overlay -->
+    <div class="theme-transition-overlay" id="themeOverlay"></div>
+
+    <!-- Header (Copied from Landing Page) -->
+    <header>
+        <div class="container">
+            <nav>
+                <a href="/" class="logo">Samir Adhikari</a>
+                <ul class="nav-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/blog.html">Blog</a></li>
+                </ul>
+                <!-- Theme Switch (Copied from Landing Page) -->
+                <!-- <div class="theme-switch-wrapper">
+                    <label class="theme-switch" for="checkbox">
+                        <input type="checkbox" id="checkbox" />
+                        <div class="slider round">
+                            <i class="fas fa-sun switch-icon sun-icon"></i>
+                            <i class="fas fa-moon switch-icon moon-icon"></i>
+                        </div>
+                    </label>
+                </div> -->
+                <!-- Mobile Menu Button -->
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Mobile Menu -->
+     <div class="mobile-menu" id="mobileMenu">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/blog.html">Blog</a></li>
+        </ul>
+    </div>
+    <!-- Blog Post Section -->
+    <section class="blog-post">
+        <div class="container">
+            <h1 class="blog-post-title">Docker to ECS: Containerizing a PHP App for Cloud Deployment</h1>
+            <div class="blog-post-meta">
+                <span><i class="far fa-calendar-alt"></i> Just now</span>
+                <span><i class="far fa-user"></i> Samir Adhikari</span>
+                <span><i class="far fa-clock"></i> 6 min read</span>
+            </div>
+
+            <!-- Placeholder for featured image -->
+            <div class="blog-post-image">
+                <img src="../img/docker_to_ecs-removebg-preview.png" alt="Docker to ECS: Containerizing a PHP App for Cloud Deployment">
+            </div>
+
+            <div class="blog-post-content">
+                <h2>Introduction:</h2>
+                <p>Moving a PHP application from local development to the cloud might sound overwhelming, but with Docker and AWS ECS, the path becomes a lot more manageable. In this guide, I’ll walk you through the first and most crucial phase: containerizing a PHP CRUD application that uses MySQL.</p>
+
+                <h2>Project Overview:</h2>
+                <p>We’ll be working with a simple PHP CRUD (Create, Read, Update, Delete) application that uses MySQL for data persistence. The goal of this phase is to get the app running inside containers using Docker and Docker Compose. In the next phase, we’ll deploy it to AWS ECS using Fargate.</p>
+
+                <h2>Tools and Technologies Used:</h2>
+                <ul>
+                    <li>PHP (with Apache)</li>
+                    <li>MySQL</li>
+                    <li>Docker</li>
+                    <li>Docker Compose</li>
+                    <li>phpMyAdmin (optional for database GUI)</li>
+                </ul>
+
+                <h2>Setting Up the Application:</h2>
+                <p>You can either create your own basic PHP CRUD app or clone an existing one from GitHub. In my case, I used a simple app that includes a database schema file (<code>init.sql</code>) for creating a users table inside a database.</p>
+
+                <h3>Database Schema (<code>init.sql</code>):</h3>
+                <div class="code-block">
+                    <pre>
+                        <code>
+CREATE DATABASE IF NOT EXISTS cruddb;
+USE cruddb;
+
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `age` int(3) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  PRIMARY KEY (`id`)
+);
+                        </code>
+                    </pre>
+                </div>
+                <p>Ensure your <code>dbConnection.php</code> file uses Docker service names for database host:</p>
+                <div class="code-block">
+                     <pre>
+                        <code>
+$databaseHost = 'db'; // Docker service name for MySQL
+$databaseName = 'cruddb';
+$databaseUsername = 'cruduser';
+$databasePassword = 'crudpass';
+
+$mysqli = mysqli_connect($databaseHost, $databaseUsername, $databasePassword, $databaseName);
+                        </code>
+                    </pre>
+                </div>
+
+                <h2>Writing the Dockerfile:</h2>
+                <p>We’ll use the official PHP-Apache image and install the mysqli extension.</p>
+                <h3>Dockerfile:</h3>
+                <div class="code-block">
+                   <pre>
+                        <code>
+FROM php:8.1-apache
+RUN docker-php-ext-install mysqli
+COPY . /var/www/html/
+                        </code>
+                    </pre>
+                </div>
+                <ul>
+                    <li><code>php:8.1-apache</code> provides Apache and PHP in one container.</li>
+                    <li><code>docker-php-ext-install mysqli</code> installs the MySQL extension for PHP.</li>
+                    <li>Code is copied into Apache’s web root directory.</li>
+                </ul>
+
+                <h2>Creating <code>docker-compose.yml</code>:</h2>
+                <p>Docker Compose helps manage multi-container applications. Here’s the setup with services for the PHP app, MySQL database, and phpMyAdmin GUI.</p>
+                <h3><code>docker-compose.yml</code>:</h3>
+                <div class="code-block">
+                    <pre>
+                        <code>
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+
+  db:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: cruddb
+      MYSQL_USER: cruduser
+      MYSQL_PASSWORD: crudpass
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: rootpassword
+
+volumes:
+  db_data:
+                        </code>
+                    </pre>
+                </div>
+                <ul>
+                    <li><code>init.sql</code> runs automatically and creates the <code>cruddb</code> database and <code>users</code> table.</li>
+                    <li><code>phpmyadmin</code> gives a web-based UI to inspect the database.</li>
+                </ul>
+
+                <h2>Running the App Locally:</h2>
+                <p>Use the following command to build and start all services:</p>
+                <div class="code-block">
+                    <pre>
+                        <code>
+docker-compose up --build
+                        </code>
+                    </pre>
+                </div>
+                <p>Visit the app:</p>
+                <ul>
+                    <li>PHP App: <a href="http://localhost:8080">http://localhost:8080</a></li>
+                    <li>phpMyAdmin: <a href="http://localhost:8081">http://localhost:8081</a></li>
+                </ul>
+                <p>Login to phpMyAdmin with:</p>
+                <ul>
+                    <li>Username: <code>cruduser</code></li>
+                    <li>Password: <code>crudpass</code></li>
+                    <li>Server: <code>db</code></li>
+                </ul>
+
+                <h2>Verifying the App:</h2>
+                <p>You should now be able to:</p>
+                <ul>
+                    <li>View the PHP app in the browser</li>
+                    <li>Add/edit/delete users</li>
+                    <li>Verify the users table inside phpMyAdmin</li>
+                </ul>
+
+                <p>Now that your PHP app is containerized and working locally, the next step is to deploy it to the cloud using AWS ECS</p>
+                <h2>Deploying the Containerized PHP CRUD App to AWS ECS Fargate:</h2>
+
+                <p>As we successfully dockerized our PHP CRUD application and verified its functionality locally, the next step is to
+                    deploy it to the cloud.</p>
+                
+                <p><b>What is AWS ECS Fargate?</b></p>
+                
+                <p>AWS Elastic Container Service (ECS) is a fully managed container orchestration service. ECS Fargate is a compute
+                    engine for ECS that allows you to run containers without managing the underlying servers.</p>
+                
+                <h3>Step 1: Create an Amazon ECR Registry:</h3>
+                
+                <p>Before deploying our Dockerized app to ECS, we need to store our Docker images in Amazon Elastic Container
+                    Registry (ECR). ECR is a fully managed Docker container registry that allows you to store, manage, and deploy
+                    container images.</p>
+                
+                <ol>
+                    <li>Create an ECR repository for your PHP app:
+                        <div class="code-block">
+                            <pre><code>aws ecr create-repository --repository-name php-app --region <your-region></code></pre>
+                        </div>
+                    </li>
+                    <li>Create an ECR repository for your MySQL image (if needed):
+                        <div class="code-block">
+                            <pre><code>aws ecr create-repository --repository-name mysql --region <your-region></code></pre>
+                        </div>
+                    </li>
+                    <li>Log in to ECR:
+                        <div class="code-block">
+                            <pre><code>aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com</code></pre>
+                        </div>
+                    </li>
+                </ol>
+                
+                <h3>Step 2: Build and Push Docker Images to ECR:</h3>
+                
+                <ol>
+                    <li>Build the PHP Docker image:
+                        <div class="code-block">
+                            <pre><code>docker build -t php-app .</code></pre>
+                        </div>
+                    </li>
+                    <li>Tag the Docker image for ECR:
+                        <div class="code-block">
+                            <pre><code>docker tag php-app:latest <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/php-app:latest</code></pre>
+                        </div>
+                    </li>
+                    <li>Push the Docker image to ECR:
+                        <div class="code-block">
+                            <pre><code>docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/php-app:latest</code></pre>
+                        </div>
+                    </li>
+                </ol>
+                <p>Redo the same process to push the MySQL image. Now that the images are pushed to the respective repositories,
+                    let's move on to the next step.</p>
+                
+                <h3>Step 3: Create an ECS Cluster:</h3>
+                
+                <p>An ECS Cluster is a logical grouping of tasks or services that you can manage together. For this project, we’ll
+                    create an ECS cluster to run our PHP and MySQL containers.</p>
+                
+                <div class="code-block">
+                    <pre><code>aws ecs create-cluster --cluster-name php-mysql-cluster</code></pre>
+                </div>
+                
+                <p>Now the ECS cluster is created successfully and is ready to host our containers.</p>
+                
+                <h3>Step 4: Create the ECS Task Definition:</h3>
+                
+                <p>An ECS Task Definition is a JSON or YAML file that describes how your containerized applications should run.</p>
+                
+                <ol>
+                    <li>Create a <code>task-definition.json</code>:
+                        <div class="code-block">
+                            <pre><code>
+                {
+                  "family": "php-mysql-task",
+                  "networkMode": "awsvpc",
+                  "requiresCompatibilities": ["FARGATE"],
+                  "cpu": "512",
+                  "memory": "1024",
+                  "containerDefinitions": [
+                    {
+                      "name": "web",
+                      "image": "<your-account-id>.dkr.ecr.<your-region>.amazonaws.com/php-app:latest",
+                      "portMappings": [
+                        { "containerPort": 80 }
+                      ],
+                      "essential": true,
+                      "environment": [
+                        { "name": "MYSQL_HOST", "value": "localhost" },
+                        { "name": "MYSQL_USER", "value": "cruduser" },
+                        { "name": "MYSQL_PASSWORD", "value": "crudpass" },
+                        { "name": "MYSQL_DATABASE", "value": "cruddb" }
+                      ]
+                    },
+                    {
+                      "name": "db",
+                      "image": "<your-account-id>.dkr.ecr.<your-region>.amazonaws.com/mysql:latest",
+                      "portMappings": [
+                        { "containerPort": 3306 }
+                      ],
+                      "essential": true,
+                      "environment": [
+                        { "name": "MYSQL_ROOT_PASSWORD", "value": "rootpassword" },
+                        { "name": "MYSQL_DATABASE", "value": "cruddb" },
+                        { "name": "MYSQL_USER", "value": "cruduser" },
+                        { "name": "MYSQL_PASSWORD", "value": "crudpass" }
+                      ]
+                    }
+                  ]
+                }</code></pre>
+                        </div>
+                    </li>
+                </ol>
+                <p>This defines two containers: one for the PHP application and another for the MySQL database.</p>
+                
+                <ol start="2">
+                    <li>Register the task definition:
+                        <div class="code-block">
+                            <pre><code>aws ecs register-task-definition --cli-input-json file://task-definition.json</code></pre>
+                        </div>
+                    </li>
+                </ol>
+                <p>This will upload the task definition to ECS, which Fargate will use to run our containers.</p>
+                
+                <h3>Step 5: Run the Task on ECS Fargate:</h3>
+                <p>This command tells ECS to launch the task based on the task definition we just created.</p>
+                
+                <div class="code-block">
+                    <pre><code>
+                aws ecs run-task \
+                  --cluster php-mysql-cluster \
+                  --launch-type FARGATE \
+                  --network-configuration "awsvpcConfiguration={subnets=[subnet-xxxx],securityGroups=[sg-xxxx],assignPublicIp=ENABLED}" \
+                  --task-definition php-mysql-task
+                </code></pre>
+                </div>
+                
+                <p>Replace <code>subnet-xxxx</code> and <code>sg-xxxx</code> with your actual subnet ID and security group ID.</p>
+                
+                <h3>Step 6: Get the Public IP of Your Running Containers:</h3>
+                
+                <p>Once the task is running, we need to get the public IP of the PHP app container to access it from a browser.</p>
+                
+                <ol>
+                    <li>First, list the tasks in the cluster:
+                        <div class="code-block">
+                            <pre><code>aws ecs list-tasks --cluster php-mysql-cluster</code></pre>
+                        </div>
+                    </li>
+                    <li>Get the task ID and describe the task to get the ENI (Elastic Network Interface) ID:
+                        <div class="code-block">
+                            <pre><code>aws ecs describe-tasks --cluster php-mysql-cluster --tasks <task-id></code></pre>
+                        </div>
+                    </li>
+                    <li>Once you have the ENI ID, get the public IP using the following command:
+                        <div class="code-block">
+                            <pre><code>aws ec2 describe-network-interfaces --network-interface-ids eni-xxxxxxxxx</code></pre>
+                        </div>
+                    </li>
+                    <li>Find the "Association -> PublicIp" value, which is the public IP of your task. Open this in your browser.
+                    </li>
+                </ol>
+                
+                <h3>Step 7: Verify the Deployment:</h3>
+                
+                <p>With the public IP in hand, open the browser and go to:</p>
+                
+                <p><code>http://public-ip</code></p>
+                <p>You should now see your PHP CRUD app running on ECS Fargate. Try the following:</p>
+                
+                <ul>
+                    <li>Add, edit, or delete users via the app’s interface.</li>
+                </ul>
+                
+                <h3>Conclusion:</h3>
+                
+                <p>In this section, we successfully:</p>
+                
+                <ul>
+                    <li>Created an ECR registry and pushed Docker images.</li>
+                    <li>Created an ECS Cluster and Task Definition.</li>
+                    <li>Deployed a containerized PHP CRUD app with MySQL to AWS ECS Fargate.</li>
+                    <li>Verified the deployment by accessing the app in the browser and performing CRUD operations.</li>
+                </ul>
+                
+                <p>With ECS Fargate, we don’t need to worry about managing EC2 instances, as Fargate automatically provisions the
+                    infrastructure needed to run our containers. You can now build, scale, and manage your applications more easily
+                    and efficiently.</p>
+                <!-- Footer (Copied from Landing Page) -->
+                 </div>
+                 </div>
+                 </section>
+                <footer>
+                    <div class="container">
+                        <div class="footer-content">
+                            <div class="footer-logo">
+                                <h3>Samir Adhikari</h3>
+                                <p>A blog dedicated to sharing AWS insights, DevOps practices, and cloud solution strategies.</p>
+                            </div>
+                            <div class="footer-links">
+                                <h4>Quick Links</h4>
+                                <ul>
+                                    <li><a href="/">Home</a></li>
+                                    <li><a href="/blog.html">Blog</a></li>
+                                </ul>
+                            </div>
+                            <div class="footer-links">
+                                <h4>Categories</h4>
+                                <ul>
+                                    <li><a href="#">AWS</a></li>
+                                    <li><a href="#">DevOps</a></li>
+                                    <li><a href="#">Cloud Solutions</a></li>
+                                </ul>
+                            </div>
+                            <div class="footer-links">
+                                <h4>Contact</h4>
+                                <ul>
+                                    <li><a href="mailto:samir.adhhh@email.com">samir.adhhh@gmail.com</a></li>
+                                    <li><a href="#">9861762422</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="footer-divider"></div>
+                        <div class="footer-bottom">
+                            <div class="copyright">© 2025 Samir Adhikari. All rights reserved.</div>
+                            <div class="footer-social">
+                                <a href="#"><i class="fab fa-facebook-f"></i></a>
+                                <a href="#"><i class="fab fa-twitter"></i></a>
+                                <a href="#"><i class="fab fa-instagram"></i></a>
+                                <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                </footer>
+                
+                <!-- Back to top button -->
+                <a href="#" class="back-to-top" id="backToTopBtn">
+                    <i class="fas fa-arrow-up"></i>
+                </a>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // --- Theme Toggle ---
+                        const checkbox = document.getElementById('checkbox');
+                        const themeOverlay = document.getElementById('themeOverlay');
+                
+                        function showThemeTransition() {
+                            if (themeOverlay) {
+                                themeOverlay.style.display = 'block';
+                                themeOverlay.style.opacity = '1';
+                                setTimeout(() => {
+                                    themeOverlay.style.opacity = '0';
+                                    setTimeout(() => {
+                                        themeOverlay.style.display = 'none';
+                                    }, 500);
+                                }, 500);
+                            }
+                        }
+                
+                        function setTheme(theme) {
+                            document.documentElement.setAttribute('data-theme', theme);
+                            localStorage.setItem('theme', theme);
+                        }
+                
+                        if (checkbox) {
+                            checkbox.addEventListener('change', () => {
+                                const theme = checkbox.checked ? 'dark' : 'light';
+                                showThemeTransition();
+                                setTheme(theme);
+                            });
+                        }
+                
+                        const storedTheme = localStorage.getItem('theme');
+                        if (storedTheme) {
+                            setTheme(storedTheme);
+                            if (checkbox) checkbox.checked = storedTheme === 'dark';
+                        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                            setTheme('dark');
+                            if (checkbox) checkbox.checked = true;
+                        }
+                
+                         // --- Back to Top Button ---
+                         const backToTopBtn = document.getElementById('backToTopBtn');
+                        if (backToTopBtn) {
+                            window.addEventListener('scroll', () => {
+                                backToTopBtn.classList.toggle('visible', window.pageYOffset > 300);
+                            });
+                
+                            backToTopBtn.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                            });
+                        }
+                
+                        // --- Mobile Menu ---
+                        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+                        const mobileMenu = document.getElementById('mobileMenu');
+                
+                        if (mobileMenuBtn && mobileMenu) {
+                            mobileMenuBtn.addEventListener('click', () => {
+                                mobileMenu.classList.toggle('active');
+                            });
+                        }
+                    });
+                </script>
+                </body>
+                </html>
