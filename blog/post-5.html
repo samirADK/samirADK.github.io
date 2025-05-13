@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://img.icons8.com/ios-filled/50/000000/infinity.png" type="image/png">
+
+    <title>Developing a Secure, Scalable, Serverless OTP Service - Samir Adhikari</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+        /* Light Theme Variables (Copied from Landing Page) */
+        :root {
+            --bg-primary: #f8f8f8;
+            --bg-secondary: #ffffff;
+            --bg-accent: #f0f0f0;
+            --text-primary: #222222;
+            --text-secondary: #555555;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.2);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.2);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.2);
+            --card-border: 1px solid #e0e0e0;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.3), 0 0 20px rgba(110, 86, 207, 0.1);
+            --header-bg: rgba(255, 255, 255, 0.9);
+            --switch-bg: #e0e0e0;
+            --switch-thumb: #ffffff;
+            --switch-icon-color: #6e56cf;
+            --footer-divider: #e0e0e0;
+            --scrollbar-track: #f0f0f0;
+            --scrollbar-thumb: #cccccc;
+            --code-bg: #e9e9e9; /* Specific for light theme code blocks */
+        }
+
+        /* Dark Theme Variables (Copied from Landing Page) */
+        :root[data-theme="dark"] {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #161616;
+            --bg-accent: #1e1e1e;
+            --text-primary: #f8f8f8;
+            --text-secondary: #bebebe;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.3);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #1e1e1e 0%, #3b3b3b 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+            --card-border: 1px solid #2a2a2a;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+            --header-bg: rgba(15, 15, 15, 0.9);
+            --switch-bg: #333333;
+            --switch-thumb: #6e56cf;
+            --switch-icon-color: #ffffff;
+            --footer-divider: #2a2a2a;
+            --scrollbar-track: #161616;
+            --scrollbar-thumb: #333333;
+            --code-bg: #232323; /* Specific for dark theme code blocks */
+        }
+
+        /* General Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        h1, h2, h3, h4, h5 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            color: var(--text-primary); /* Ensure headings also transition color */
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--header-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0 20px;
+            border-bottom: var(--card-border);
+            transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+        }
+
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: color 0.5s ease;
+        }
+
+        .logo::before {
+            content: "";
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 10px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: var(--shadow-glow);
+            transition: background-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+        }
+
+        .nav-links li {
+            margin-left: 40px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 16px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--accent-color);
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-color);
+            text-shadow: var(--neon-glow);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Theme Switch (Copied from Landing Page) */
+        .theme-switch-wrapper {
+            display: flex;
+            align-items: center;
+            margin-left: 30px;
+            position: relative;
+        }
+
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 32px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--switch-bg);
+            transition: .4s;
+            border-radius: 34px;
+            overflow: hidden;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 4px;
+            bottom: 4px;
+            background-color: var(--switch-thumb);
+            transition: .4s;
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        .slider .switch-icon {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1;
+            color: var(--switch-icon-color);
+            transition: opacity 0.3s, transform 0.5s;
+        }
+
+        .slider .sun-icon {
+            right: 9px;
+            opacity: 1;
+        }
+
+        .slider .moon-icon {
+            left: 7px;
+            opacity: 0;
+        }
+
+        input:checked + .slider .sun-icon {
+            opacity: 0;
+        }
+
+        input:checked + .slider .moon-icon {
+            opacity: 1;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(28px);
+            background-color: var(--accent-color); /* Ensure thumb is accent color when checked dark */
+        }
+        :root[data-theme="dark"] .slider:before { /* Light theme thumb on dark bg */
+             /* background-color: #ffffff; /* Default thumb for light mode is white */
+        }
+        :root[data-theme="dark"] input:checked + .slider:before { /* Dark theme thumb on dark bg, when checked */
+            background-color: var(--switch-thumb); /* Uses dark theme switch thumb */
+        }
+
+
+        /* Blog Post Styles */
+        .blog-post {
+            padding: 80px 0;
+        }
+
+        .blog-post-title {
+            font-size: 42px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-meta {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 40px;
+            transition: color 0.5s ease;
+            flex-wrap: wrap; /* For better responsiveness */
+        }
+
+        .blog-post-meta span {
+            margin: 5px 15px; /* Adjusted margin for wrapping */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .blog-post-meta i {
+            color: var(--accent-color);
+        }
+
+        .blog-post-image {
+            max-width: 800px;
+            margin: 0 auto 20px; /* Reduced bottom margin */
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .blog-post-image img {
+            width: 100%;
+            display: block;
+        }
+        .blog-post-caption {
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            font-style: italic;
+        }
+
+        .blog-post-content {
+            max-width: 800px;
+            margin: 0 auto;
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-content h2 {
+            font-size: 32px;
+            margin: 40px 0 20px;
+            border-bottom: 2px solid var(--accent-muted);
+            padding-bottom: 10px;
+        }
+
+        .blog-post-content h3 {
+            font-size: 26px;
+            margin: 30px 0 15px;
+        }
+         .blog-post-content h4 { /* For sub-sub-headings like filenames */
+            font-size: 20px;
+            margin: 25px 0 10px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+
+        .blog-post-content p {
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content ul,
+        .blog-post-content ol {
+            padding-left: 30px;
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content li {
+            margin-bottom: 10px;
+        }
+
+        .blog-post-content a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .blog-post-content a:hover {
+            color: var(--accent-hover);
+        }
+
+        .blog-post-content blockquote {
+            border-left: 5px solid var(--accent-color);
+            padding: 15px 20px;
+            margin: 30px 0;
+            background-color: var(--bg-accent);
+            border-radius: 5px;
+            font-style: italic;
+            color: var(--text-secondary);
+            transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
+        }
+
+        /* Code Block Styling */
+        .blog-post-content pre {
+            background-color: var(--code-bg); /* Use theme-specific bg for code */
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto; /* Enables horizontal scroll */
+            margin: 30px 0;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-size: 15px;
+            line-height: 1.6;
+            white-space: pre; /* Preserves whitespace and formatting */
+            box-shadow: var(--shadow-sm);
+            transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .blog-post-content pre code {
+            font-family: inherit;
+            color: var(--text-primary); /* Code text color */
+            background: none;
+            padding: 0;
+            font-size: inherit;
+            white-space: pre; /* Ensure pre-wrap is not inherited if set on code */
+        }
+        /* Inline code styling */
+        .blog-post-content p > code,
+        .blog-post-content li > code,
+        .blog-post-content h3 > code,
+        .blog-post-content h4 > code {
+            background-color: var(--accent-muted);
+            color: var(--accent-color);
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+        }
+
+
+         /*Mobile Menu */
+         .mobile-menu-btn {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 30px;
+            height: 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 20px;
+        }
+
+        .mobile-menu-btn span {
+            height: 2px;
+            width: 100%;
+            background-color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu {
+            position: fixed;
+            top: 80px; /* Adjust based on header height */
+            left: 0;
+            width: 100%;
+            height: 0;
+            background-color: var(--bg-secondary);
+            overflow: hidden;
+            transition: height 0.3s ease, opacity 0.3s ease;
+            z-index: 99;
+            opacity: 0;
+            border-bottom: 1px solid transparent; /* Add border for transition */
+        }
+
+        .mobile-menu.active {
+            height: auto; /* Or a max-height if preferred */
+            opacity: 1;
+            box-shadow: var(--shadow-md);
+            border-bottom-color: var(--card-border);
+        }
+
+
+        .mobile-menu ul {
+            list-style: none;
+            padding: 20px;
+        }
+
+        .mobile-menu li {
+            margin: 15px 0;
+        }
+
+        .mobile-menu a {
+            font-size: 18px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.3s;
+            display: block;
+            padding: 10px 0;
+        }
+
+        .mobile-menu a:hover {
+            color: var(--accent-color);
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: flex;
+            }
+             .nav-links { /* Hide desktop nav links on mobile */
+                display: none;
+            }
+             .theme-switch-wrapper { /* Adjust theme switch position or hide on very small screens if needed */
+                margin-left: auto; /* Push to right if mobile menu button is also present */
+             }
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 80px 0 40px;
+            transition: background-color 0.5s ease, color 0.5s ease;
+            border-top: 1px solid var(--footer-divider); /* Added top border */
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 50px;
+            flex-wrap: wrap; /* Allow wrapping */
+        }
+
+        .footer-logo {
+            flex: 1 1 300px; /* Flex basis for responsiveness */
+            margin-right: 20px; /* Spacing */
+            margin-bottom: 30px;
+        }
+
+        .footer-logo h3 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-logo p {
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            font-size: 15px;
+            transition: color 0.5s ease;
+        }
+
+        .footer-links {
+            flex: 1 1 180px; /* Flex basis for responsiveness */
+            margin-bottom: 30px; /* Spacing for wrapped items */
+        }
+
+        .footer-links h4 {
+            font-size: 20px;
+            margin-bottom: 25px;
+            position: relative;
+            padding-bottom: 12px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-links h4::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--accent-color);
+        }
+
+        .footer-links ul {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 12px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-color);
+        }
+
+        .footer-divider {
+            height: 1px;
+            background-color: var(--footer-divider);
+            margin: 20px 0;
+            transition: background-color 0.5s ease;
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap; /* Allow wrapping for bottom items */
+        }
+
+        .copyright {
+            color: var(--text-secondary);
+            font-size: 14px;
+            transition: color 0.5s ease;
+            margin-bottom: 10px; /* Spacing when wrapped */
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 15px;
+        }
+
+        .footer-social a {
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-accent);
+            border-radius: 50%;
+            border: var(--card-border);
+            color: var(--text-secondary);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .footer-social a:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-color);
+            border-radius: 50%;
+            transform: scale(0);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1; /* Ensure it's above icon if icon not z-indexed */
+        }
+
+        .footer-social a:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
+            border-color: var(--accent-color);
+        }
+
+        .footer-social a:hover:before {
+            transform: scale(1);
+        }
+
+        .footer-social a i {
+            position: relative;
+            z-index: 2; /* Ensure icon is above the :before pseudo-element */
+        }
+         /* Back to top button */
+         .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s, opacity 0.5s, transform 0.5s;
+            z-index: 99;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .back-to-top:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: var(--shadow-glow);
+        }
+         /* Theme transition overlay */
+         .theme-transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-primary); /* Will be current theme's bg */
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease; /* Faster transition */
+        }
+         /* Custom scrollbar */
+         ::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+            border-radius: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 6px;
+            border: 3px solid var(--scrollbar-track);
+            transition: background-color 0.5s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+        /* Prefers color scheme media query - Fallback if JS is disabled or no explicit theme is set */
+        @media (prefers-color-scheme: dark) {
+            body:not([data-theme="light"]):not([data-theme-forced="light"]) { /* Apply if not explicitly light */
+                --bg-primary: #0f0f0f;
+                --bg-secondary: #161616;
+                --bg-accent: #1e1e1e;
+                --text-primary: #f8f8f8;
+                --text-secondary: #bebebe;
+                --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+                --card-border: 1px solid #2a2a2a;
+                --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+                --header-bg: rgba(15, 15, 15, 0.9);
+                --switch-bg: #333333;
+                --switch-thumb: #6e56cf; /* Thumb color in dark mode when switch is "on" (dark selected) */
+                --switch-icon-color: #ffffff;
+                --footer-divider: #2a2a2a;
+                --scrollbar-track: #161616;
+                --scrollbar-thumb: #333333;
+                --code-bg: #232323;
+            }
+        }
+
+         /* Responsive Design */
+         @media (max-width: 992px) {
+            .footer-content {
+                gap: 30px; /* Adjust gap for better layout */
+            }
+         }
+
+        @media (max-width: 768px) {
+            .footer-bottom {
+                flex-direction: column;
+                gap: 20px;
+                align-items: center; /* Center items when stacked */
+            }
+            .blog-post-title {
+                font-size: 36px;
+            }
+            .blog-post-content h2 {
+                font-size: 28px;
+            }
+            .blog-post-content h3 {
+                font-size: 22px;
+            }
+        }
+        @media (max-width: 576px) {
+            .blog-post-meta span {
+                margin: 5px 10px; /* Further reduce margin on very small screens */
+            }
+            .blog-post-title {
+                font-size: 30px;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light"> <!-- Default to light, JS will handle stored preference -->
+
+    <!-- Theme transition overlay -->
+    <div class="theme-transition-overlay" id="themeOverlay"></div>
+
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <nav>
+                <a href="/" class="logo">Samir Adhikari</a>
+                <ul class="nav-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/blog.html">Blog</a></li>
+                </ul>
+                <!-- Theme Switch (Commented out as per your example) -->
+              
+                <!-- Mobile Menu Button -->
+                <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu" aria-expanded="false">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Mobile Menu -->
+     <div class="mobile-menu" id="mobileMenu">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/blog.html">Blog</a></li>
+            <!-- Mobile theme switch can be added here if desired -->
+        </ul>
+    </div>
+
+    <!-- Blog Post Section -->
+    <section class="blog-post">
+        <div class="container">
+            <h1 class="blog-post-title">Developing a Secure, Scalable, Serverless OTP Service Using AWS SNS, Lambda, and DynamoDB</h1>
+            <div class="blog-post-meta">
+                <span><i class="far fa-calendar-alt"></i> May 13, 2025</span>
+                <span><i class="far fa-user"></i> Samir Adhikari</span>
+                <span><i class="far fa-clock"></i> 7 min read</span>
+                <span><i class="far fa-comment"></i> 2 Comments</span>
+            </div>
+
+            <div class="blog-post-image">
+                <!-- NOTE: Replace with your actual image path -->
+                <img src="../img/otp generation.png" alt="OTP Service Architecture Diagram">
+            </div>
+            <p class="blog-post-caption">Fig: Architecture Diagram For OTP Service</p>
+
+            <div class="blog-post-content">
+                <p>In this tutorial, we will walk through how to build a serverless OTP (One-Time Password) system using AWS services, and deploy the entire infrastructure using Terraform (Infrastructure as Code). This system sends OTPs to users via SMS using Amazon SNS and verifies them using DynamoDB.</p>
+
+                <h2>Architecture Overview</h2>
+                <p>We will use the following AWS services:</p>
+                <ul>
+                    <li><strong>API Gateway:</strong> To expose RESTful endpoints <code>/send-otp</code> and <code>/verify-otp</code>.</li>
+                    <li><strong>AWS Lambda:</strong> To handle OTP generation and verification logic.</li>
+                    <li><strong>Amazon DynamoDB:</strong> To store OTPs with expiration timestamps (TTL).</li>
+                    <li><strong>Amazon SNS:</strong> To send OTPs as SMS to users.</li>
+                    <li><strong>Terraform:</strong> To provision all infrastructure.</li>
+                </ul>
+
+                <h2>Prerequisites</h2>
+                <ul>
+                    <li>AWS Account</li>
+                    <li>Terraform installed (>= 1.0.0)</li>
+                    <li>AWS CLI configured</li>
+                    <li>Basic knowledge of AWS services and Python</li>
+                </ul>
+
+                <h2>Project Structure</h2>
+                <p>Your project should be organized as follows:</p>
+<pre><code>.
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── lambda/
+│   ├── send_otp.py
+│   └── verify_otp.py
+└── lambda.zip  (Generated from lambda/ directory)</code></pre>
+
+                <h2>Step-by-Step Implementation</h2>
+
+                <h3>Step 1: Write Lambda Functions</h3>
+                <p>Create the Python files for your Lambda functions inside the <code>lambda</code> directory.</p>
+
+                <h4><code>lambda/send_otp.py</code></h4>
+<pre><code class="language-python">
+import json
+import boto3
+import random
+import time
+import os
+
+dynamodb = boto3.resource('dynamodb')
+sns = boto3.client('sns')
+# Ensure OTP_TABLE environment variable is set in Lambda configuration
+table_name = os.environ.get('OTP_TABLE')
+if not table_name:
+    raise ValueError("Missing OTP_TABLE environment variable")
+table = dynamodb.Table(table_name)
+
+def lambda_handler(event, context):
+    try:
+        body = json.loads(event.get('body', '{}'))
+    except json.JSONDecodeError:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Invalid JSON in request body'})
+        }
+
+    user_id = body.get('userId') # Phone number for SMS
+    if not user_id:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'userId (phone number) is required'})
+        }
+
+    otp = str(random.randint(100000, 999999))
+    # TTL for 5 minutes (300 seconds)
+    # DynamoDB TTL attribute must be a Unix epoch timestamp in seconds
+    ttl_timestamp = int(time.time()) + 300
+
+    try:
+        table.put_item(Item={
+            'userId': user_id,
+            'otp': otp,
+            'expirationTime': ttl_timestamp  # Ensure this matches TTL attribute in DynamoDB
+        })
+
+        sns.publish(
+            PhoneNumber=user_id,
+            Message=f"Your OTP is: {otp}"
+        )
+    except Exception as e:
+        print(f"Error processing OTP: {e}") # Log error for debugging
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'Failed to send OTP', 'details': str(e)})
+        }
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps({'message': 'OTP sent successfully'})
+    }
+</code></pre>
+
+                <h4><code>lambda/verify_otp.py</code></h4>
+<pre><code class="language-python">
+import json
+import boto3
+import time
+import os
+
+dynamodb = boto3.resource('dynamodb')
+# Ensure OTP_TABLE environment variable is set in Lambda configuration
+table_name = os.environ.get('OTP_TABLE')
+if not table_name:
+    raise ValueError("Missing OTP_TABLE environment variable")
+table = dynamodb.Table(table_name)
+
+def lambda_handler(event, context):
+    try:
+        body = json.loads(event.get('body', '{}'))
+    except json.JSONDecodeError:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'verified': False, 'error': 'Invalid JSON in request body'})
+        }
+
+    user_id = body.get('userId')
+    input_otp = body.get('otp')
+
+    if not user_id or not input_otp:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'verified': False, 'error': 'userId and otp are required'})
+        }
+
+    try:
+        response = table.get_item(Key={'userId': user_id})
+    except Exception as e:
+        print(f"Error fetching OTP from DynamoDB: {e}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'verified': False, 'error': 'Failed to retrieve OTP details', 'details': str(e)})
+        }
+        
+    item = response.get('Item')
+
+    if not item:
+        return {
+            'statusCode': 404,
+            'body': json.dumps({'verified': False, 'error': 'OTP not found or already used'})
+        }
+
+    # Check if OTP has expired - DynamoDB TTL should handle deletion,
+    # but this is a good safeguard if item hasn't been reaped yet.
+    # 'expirationTime' is expected to be a Unix epoch timestamp in seconds.
+    if int(time.time()) > item.get('expirationTime', 0):
+        # Optionally, delete the expired item here if not relying solely on TTL
+        # table.delete_item(Key={'userId': user_id})
+        return {
+            'statusCode': 410, # HTTP 410 Gone
+            'body': json.dumps({'verified': False, 'error': 'OTP expired'})
+        }
+
+    if item.get('otp') == input_otp:
+        # Optionally, delete the OTP item after successful verification
+        # to prevent reuse, if not relying on TTL for cleanup.
+        # table.delete_item(Key={'userId': user_id})
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'verified': True, 'message': 'OTP verified successfully'})
+        }
+
+    return {
+        'statusCode': 401, # HTTP 401 Unauthorized
+        'body': json.dumps({'verified': False, 'error': 'Invalid OTP'})
+    }
+</code></pre>
+
+                <h3>Step 2: Terraform Configuration</h3>
+                <p>Create the following Terraform files in the root of your project.</p>
+
+                <h4><code>main.tf</code></h4>
+                <p>This file sets up all the AWS resources including the required IAM roles and permissions.</p>
+<pre><code class="language-hcl">
+provider "aws" {
+  region = var.aws_region
+}
+
+# --- DynamoDB Table for OTPs ---
+resource "aws_dynamodb_table" "otp_table" {
+  name         = "OTPsTable-${random_id.suffix.hex}" # Unique table name
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "userId" # Primary key
+
+  attribute {
+    name = "userId" # Phone number or user identifier
+    type = "S"      # String
+  }
+
+  # TTL (Time To Live) configuration to automatically delete expired OTPs
+  ttl {
+    attribute_name = "expirationTime" # Must match the attribute name in Lambda
+    enabled        = true
+  }
+
+  tags = {
+    Name        = "OTPStorageTable"
+    Environment = "Production" # Or your environment
+  }
+}
+
+# Generate a random suffix for unique resource naming
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
+# --- IAM Role and Policies for Lambda ---
+resource "aws_iam_role" "lambda_exec_role" {
+  name = "otp_lambda_exec_role-${random_id.suffix.hex}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action    = "sts:AssumeRole",
+      Effect    = "Allow",
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+
+  tags = {
+    Name = "OTP Lambda Execution Role"
+  }
+}
+
+# Basic Lambda execution policy (CloudWatch Logs)
+resource "aws_iam_role_policy_attachment" "lambda_basic_exec_policy" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# Custom IAM policy for DynamoDB and SNS access
+resource "aws_iam_policy" "lambda_custom_permissions_policy" {
+  name        = "otp_lambda_permissions_policy-${random_id.suffix.hex}"
+  description = "Policy for Lambda to access DynamoDB OTP table and publish to SNS"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = [
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:DeleteItem", # If you implement OTP deletion after verification
+            "dynamodb:UpdateItem"  # If you need to update items
+        ],
+        Resource = aws_dynamodb_table.otp_table.arn
+      },
+      {
+        Effect   = "Allow",
+        Action   = ["sns:Publish"],
+        Resource = "*" # Restrict this to specific SNS topics in production if possible
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_custom_permissions_attachment" {
+  role       = aws_iam_role.lambda_exec_role.name
+  policy_arn = aws_iam_policy.lambda_custom_permissions_policy.arn
+}
+
+# --- Lambda Functions ---
+# Package the lambda functions
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/lambda/"
+  output_path = "${path.module}/lambda.zip"
+}
+
+resource "aws_lambda_function" "send_otp_lambda" {
+  filename         = data.archive_file.lambda_zip.output_path
+  function_name    = "sendOTPFunction-${random_id.suffix.hex}"
+  role             = aws_iam_role.lambda_exec_role.arn
+  handler          = "send_otp.lambda_handler" # Corresponds to filename.function_name
+  runtime          = "python3.12"
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      OTP_TABLE = aws_dynamodb_table.otp_table.name
+    }
+  }
+
+  tags = {
+    Name = "SendOTP Lambda"
+  }
+}
+
+resource "aws_lambda_function" "verify_otp_lambda" {
+  filename         = data.archive_file.lambda_zip.output_path
+  function_name    = "verifyOTPFunction-${random_id.suffix.hex}"
+  role             = aws_iam_role.lambda_exec_role.arn
+  handler          = "verify_otp.lambda_handler" # Corresponds to filename.function_name
+  runtime          = "python3.12"
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      OTP_TABLE = aws_dynamodb_table.otp_table.name
+    }
+  }
+
+  tags = {
+    Name = "VerifyOTP Lambda"
+  }
+}
+
+# --- API Gateway (HTTP API v2) ---
+resource "aws_apigatewayv2_api" "otp_api" {
+  name          = "OTPApi-${random_id.suffix.hex}"
+  protocol_type = "HTTP"
+  description   = "API Gateway for Serverless OTP Service"
+
+  tags = {
+    Name = "OTP Service API"
+  }
+}
+
+resource "aws_apigatewayv2_stage" "default_stage" {
+  api_id      = aws_apigatewayv2_api.otp_api.id
+  name        = "$default" # Default stage
+  auto_deploy = true      # Automatically deploy changes
+
+  tags = {
+    Name = "OTP API Default Stage"
+  }
+}
+
+# API Gateway Integrations with Lambda
+resource "aws_apigatewayv2_integration" "send_otp_integration" {
+  api_id           = aws_apigatewayv2_api.otp_api.id
+  integration_type = "AWS_PROXY" # For Lambda proxy integration
+  integration_uri  = aws_lambda_function.send_otp_lambda.invoke_arn
+  payload_format_version = "2.0" # For HTTP APIs
+}
+
+resource "aws_apigatewayv2_integration" "verify_otp_integration" {
+  api_id           = aws_apigatewayv2_api.otp_api.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.verify_otp_lambda.invoke_arn
+  payload_format_version = "2.0"
+}
+
+# API Gateway Routes
+resource "aws_apigatewayv2_route" "send_otp_route" {
+  api_id    = aws_apigatewayv2_api.otp_api.id
+  route_key = "POST /send-otp" # Method and path
+  target    = "integrations/${aws_apigatewayv2_integration.send_otp_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "verify_otp_route" {
+  api_id    = aws_apigatewayv2_api.otp_api.id
+  route_key = "POST /verify-otp"
+  target    = "integrations/${aws_apigatewayv2_integration.verify_otp_integration.id}"
+}
+
+# Permissions for API Gateway to invoke Lambda functions
+resource "aws_lambda_permission" "api_gw_send_otp_permission" {
+  statement_id  = "AllowAPIGatewayInvokeSendOTP"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.send_otp_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  # Source ARN restricts which API Gateway can invoke this Lambda
+  source_arn    = "${aws_apigatewayv2_api.otp_api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "api_gw_verify_otp_permission" {
+  statement_id  = "AllowAPIGatewayInvokeVerifyOTP"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.verify_otp_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.otp_api.execution_arn}/*/*"
+}
+
+</code></pre>
+
+                <h4><code>variables.tf</code></h4>
+<pre><code class="language-hcl">
+variable "aws_region" {
+  description = "The AWS region to deploy resources into."
+  type        = string
+  default     = "us-east-1"
+}
+</code></pre>
+
+                <h4><code>outputs.tf</code></h4>
+<pre><code class="language-hcl">
+output "api_endpoint" {
+  description = "The base URL endpoint for the OTP API."
+  value       = aws_apigatewayv2_api.otp_api.api_endpoint
+}
+
+output "send_otp_endpoint" {
+  description = "Full URL to the /send-otp endpoint."
+  value       = "${aws_apigatewayv2_api.otp_api.api_endpoint}/send-otp"
+}
+
+output "verify_otp_endpoint" {
+  description = "Full URL to the /verify-otp endpoint."
+  value       = "${aws_apigatewayv2_api.otp_api.api_endpoint}/verify-otp"
+}
+
+output "otp_table_name" {
+  description = "Name of the DynamoDB table used for storing OTPs."
+  value       = aws_dynamodb_table.otp_table.name
+}
+</code></pre>
+
+                <h3>Step 3: Deploy the Stack</h3>
+                <p>Before deploying, ensure your Lambda function code is in the <code>lambda</code> directory. The Terraform configuration uses <code>data "archive_file"</code> to zip this directory automatically.</p>
+                <ol>
+                    <li>
+                        <strong>Initialize Terraform:</strong>
+                        <p>Run this command in the root directory of your project (where your <code>.tf</code> files are):</p>
+                        <pre><code>terraform init</code></pre>
+                    </li>
+                    <li>
+                        <strong>Plan the deployment:</strong>
+                        <p>This will show you what resources Terraform will create.</p>
+                        <pre><code>terraform plan</code></pre>
+                    </li>
+                    <li>
+                        <strong>Apply Terraform configuration:</strong>
+                        <p>This will provision the resources in your AWS account. Confirm by typing <code>yes</code> when prompted.</p>
+                        <pre><code>terraform apply</code></pre>
+                    </li>
+                </ol>
+                <p>After deployment, Terraform will output the API endpoint URLs. You can now make POST requests to:</p>
+                <ul>
+                    <li><code>https://<api-id>.execute-api.<region>.amazonaws.com/send-otp</code>
+                        <br>Request Body: <code>{ "userId": "+11234567890" }</code> (use an E.164 formatted phone number)
+                    </li>
+                    <li><code>https://<api-id>.execute-api.<region>.amazonaws.com/verify-otp</code>
+                        <br>Request Body: <code>{ "userId": "+11234567890", "otp": "123456" }</code>
+                    </li>
+                </ul>
+                 <p>To clean up and remove all created resources, run:</p>
+                 <pre><code>terraform destroy</code></pre>
+
+                <h2>Conclusion</h2>
+                <p>Using Terraform, you've successfully defined and deployed a fully serverless, scalable, and secure OTP delivery system. This approach leverages AWS API Gateway for exposing endpoints, AWS Lambda for business logic, Amazon SNS for sending SMS, and Amazon DynamoDB for persistent OTP storage with automatic expiration. The entire infrastructure is managed as code, ensuring it is repeatable, version-controlled, and auditable.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h3>Samir Adhikari</h3>
+                    <p>A blog dedicated to sharing AWS insights, DevOps practices, and cloud solution strategies.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="/">Home</a></li>
+                        <li><a href="/blog.html">Blog</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Categories</h4>
+                    <ul>
+                        <li><a href="#">AWS</a></li>
+                        <li><a href="#">DevOps</a></li>
+                        <li><a href="#">Serverless</a></li>
+                        <li><a href="#">Terraform</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Contact</h4>
+                    <ul>
+                        <li><a href="mailto:samir.adhhh@example.com">samir.adhhh@example.com</a></li>
+                        <li><a href="tel:+1234567890">(123) 456-7890</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-divider"></div>
+            <div class="footer-bottom">
+                <div class="copyright">© 2024 Samir Adhikari. All rights reserved.</div>
+                <div class="footer-social">
+                    <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                    <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                    <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Back to top button -->
+    <a href="#" class="back-to-top" id="backToTopBtn" aria-label="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkbox = document.getElementById('checkbox');
+            const themeOverlay = document.getElementById('themeOverlay');
+            const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+            function applyThemeTransition() {
+                if (themeOverlay) {
+                    themeOverlay.style.opacity = '1';
+                    // Ensure display is block before starting transition
+                    // but only if it's not already visible (to avoid flicker on load)
+                    if (getComputedStyle(themeOverlay).display === 'none') {
+                         themeOverlay.style.display = 'block';
+                    }
+                    setTimeout(() => {
+                        themeOverlay.style.opacity = '0';
+                        setTimeout(() => {
+                            themeOverlay.style.display = 'none';
+                        }, 300); // Match transition duration
+                    }, 10); // Short delay to allow CSS to apply
+                }
+            }
+
+            function setTheme(theme, manualSwitch = false) {
+                applyThemeTransition();
+                document.documentElement.setAttribute('data-theme', theme);
+                if (manualSwitch) { // Only set forced if user manually toggled
+                    document.documentElement.setAttribute('data-theme-forced', theme);
+                }
+                localStorage.setItem('theme', theme);
+                if (checkbox) {
+                    checkbox.checked = theme === 'dark';
+                }
+            }
+
+            const storedTheme = localStorage.getItem('theme');
+            const forcedTheme = document.documentElement.getAttribute('data-theme-forced');
+
+            if (storedTheme) {
+                setTheme(storedTheme);
+            } else if (!forcedTheme && prefersDarkScheme.matches) {
+                setTheme('dark');
+            } else { // Default to light if nothing else set
+                setTheme('light');
+            }
+
+
+            if (checkbox) {
+                checkbox.addEventListener('change', () => {
+                    const newTheme = checkbox.checked ? 'dark' : 'light';
+                    setTheme(newTheme, true); // True for manual switch
+                });
+            }
+            
+            // Listen for OS theme changes if no theme explicitly set by user
+            prefersDarkScheme.addEventListener('change', (e) => {
+                // Only change if no theme has been manually forced by user toggle
+                if (!document.documentElement.getAttribute('data-theme-forced')) {
+                    setTheme(e.matches ? 'dark' : 'light');
+                }
+            });
+
+
+             // --- Back to Top Button ---
+            const backToTopBtn = document.getElementById('backToTopBtn');
+            if (backToTopBtn) {
+                window.addEventListener('scroll', () => {
+                    if (window.pageYOffset > 300) {
+                        backToTopBtn.classList.add('visible');
+                    } else {
+                        backToTopBtn.classList.remove('visible');
+                    }
+                });
+
+                backToTopBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            }
+
+            // --- Mobile Menu ---
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+
+            if (mobileMenuBtn && mobileMenu) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    const isActive = mobileMenu.classList.toggle('active');
+                    mobileMenuBtn.setAttribute('aria-expanded', isActive);
+                });
+
+                // Close mobile menu when a link is clicked (optional)
+                mobileMenu.querySelectorAll('a').forEach(link => {
+                    link.addEventListener('click', () => {
+                        mobileMenu.classList.remove('active');
+                        mobileMenuBtn.setAttribute('aria-expanded', 'false');
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>
