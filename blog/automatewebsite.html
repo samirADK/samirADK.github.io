@@ -7,6 +7,15 @@
 
     <title>Automate Your Website Deployment on AWS Lightsail - Samir Adhikari</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NQYZ1YTN96"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-NQYZ1YTN96');
+</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
 
@@ -696,8 +705,8 @@
             overflow-x: auto; /* Enable horizontal scrollbar */
             border-radius: 8px;
             margin-bottom: 20px;
-            white-space: pre-wrap;
-            word-break: break-all;
+            white-space: pre-wrap; /* Allow line breaks within the code block */
+            word-break: break-all; /* Break long words to prevent overflow */
         }
 
         code {
@@ -799,7 +808,7 @@ sudo mkdir -p "$DOC_ROOT"
 sudo unzip -o "$ZIPFILE" -d "$DOC_ROOT"
 sudo chown -R www-data:www-data "$DOC_ROOT"
 
-sudo tee "$NGINX_AVAILABLE" > /dev/null
+sudo tee "$NGINX_AVAILABLE" > /dev/null 
 server {
     listen 80;
     server_name $DOMAIN www.$DOMAIN;
