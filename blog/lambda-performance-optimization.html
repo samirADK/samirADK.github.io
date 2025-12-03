@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://img.icons8.com/ios-filled/50/000000/infinity.png" type="image/png">
+    <title>AWS Lambda Performance Optimization: Mastering Cold Starts and Cost Efficiency - Samir Adhikari</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NQYZ1YTN96"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-NQYZ1YTN96');
+</script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+        /* Light Theme Variables (Copied from Landing Page) */
+        :root {
+            --bg-primary: #f8f8f8;
+            --bg-secondary: #ffffff;
+            --bg-accent: #f0f0f0;
+            --text-primary: #222222;
+            --text-secondary: #555555;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.2);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.2);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.2);
+            --card-border: 1px solid #e0e0e0;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.3), 0 0 20px rgba(110, 86, 207, 0.1);
+            --header-bg: rgba(255, 255, 255, 0.9);
+            --switch-bg: #e0e0e0;
+            --switch-thumb: #ffffff;
+            --switch-icon-color: #6e56cf;
+            --footer-divider: #e0e0e0;
+            --scrollbar-track: #f0f0f0;
+            --scrollbar-thumb: #cccccc;
+        }
+
+        /* Dark Theme Variables (Copied from Landing Page) */
+        :root[data-theme="dark"] {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #161616;
+            --bg-accent: #1e1e1e;
+            --text-primary: #f8f8f8;
+            --text-secondary: #bebebe;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.3);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #1e1e1e 0%, #3b3b3b 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+            --card-border: 1px solid #2a2a2a;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+            --header-bg: rgba(15, 15, 15, 0.9);
+            --switch-bg: #333333;
+            --switch-thumb: #6e56cf;
+            --switch-icon-color: #ffffff;
+            --footer-divider: #2a2a2a;
+            --scrollbar-track: #161616;
+            --scrollbar-thumb: #333333;
+        }
+
+        /* General Styles (Copied from Landing Page with minor adjustments) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        h1, h2, h3, h4, h5 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header (Copied from Landing Page) */
+        header {
+            background-color: var(--header-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0 20px;
+            border-bottom: var(--card-border);
+            transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+        }
+
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: color 0.5s ease;
+        }
+
+        .logo::before {
+            content: "";
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 10px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: var(--shadow-glow);
+            transition: background-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+        }
+
+        .nav-links li {
+            margin-left: 40px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 16px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--accent-color);
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-color);
+            text-shadow: var(--neon-glow);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Mobile Menu */
+        .mobile-menu-btn {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 30px;
+            height: 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 20px;
+        }
+
+        .mobile-menu-btn span {
+            height: 2px;
+            width: 100%;
+            background-color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu {
+            position: fixed;
+            top: 80px;
+            left: 0;
+            width: 100%;
+            height: 0;
+            background-color: var(--bg-secondary);
+            overflow: hidden;
+            transition: height 0.3s ease;
+            z-index: 99;
+            opacity: 0;
+            box-shadow: var(--shadow-md);
+        }
+
+        .mobile-menu.active {
+            height: auto;
+            opacity: 1;
+        }
+
+        .mobile-menu ul {
+            list-style: none;
+            padding: 20px;
+        }
+
+        .mobile-menu li {
+            margin: 15px 0;
+        }
+
+        .mobile-menu a {
+            font-size: 18px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.3s;
+            display: block;
+            padding: 10px 0;
+        }
+
+        .mobile-menu a:hover {
+            color: var(--accent-color);
+        }
+
+        /* Blog Post Styles */
+        .blog-post {
+            padding: 80px 0;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-bottom: 30px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: var(--accent-color);
+        }
+
+        .back-link i {
+            margin-right: 8px;
+        }
+
+        .blog-post-title {
+            font-size: 42px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-meta {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 40px;
+            gap: 30px;
+            flex-wrap: wrap;
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-meta span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .blog-post-meta i {
+            color: var(--accent-color);
+        }
+
+        .blog-post-content {
+            max-width: 800px;
+            margin: 0 auto;
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-content h2 {
+            font-size: 32px;
+            margin: 40px 0 20px;
+        }
+
+        .blog-post-content h3 {
+            font-size: 26px;
+            margin: 30px 0 15px;
+        }
+
+        .blog-post-content p {
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content ul,
+        .blog-post-content ol {
+            padding-left: 30px;
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content li {
+            margin-bottom: 10px;
+        }
+
+        .blog-post-content a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .blog-post-content a:hover {
+            color: var(--accent-hover);
+        }
+
+        .blog-post-content blockquote {
+            border-left: 5px solid var(--accent-color);
+            padding: 15px 20px;
+            margin: 30px 0;
+            background-color: var(--bg-accent);
+            border-radius: 5px;
+            font-style: italic;
+            color: var(--text-secondary);
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* Code Styling */
+        pre {
+            background-color: var(--bg-accent);
+            color: var(--text-primary);
+            padding: 15px;
+            overflow-x: auto;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        code {
+            font-family: monospace, monospace;
+            font-size: 16px;
+            display: block;
+        }
+
+        .performance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: background-color 0.5s ease;
+        }
+
+        .performance-table th,
+        .performance-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: var(--card-border);
+        }
+
+        .performance-table th {
+            background-color: var(--accent-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        .performance-table tr:hover {
+            background-color: var(--bg-accent);
+        }
+
+        /* Footer (Copied from Landing Page) */
+        footer {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 80px 0 40px;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 50px;
+        }
+
+        .footer-logo {
+            flex: 0 0 30%;
+        }
+
+        .footer-logo h3 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-logo p {
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            font-size: 15px;
+            transition: color 0.5s ease;
+        }
+
+        .footer-links {
+            flex: 0 0 20%;
+        }
+
+        .footer-links h4 {
+            font-size: 20px;
+            margin-bottom: 25px;
+            position: relative;
+            padding-bottom: 12px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-links h4::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--accent-color);
+        }
+
+        .footer-links ul {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 12px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-color);
+        }
+
+        .footer-divider {
+            height: 1px;
+            background-color: var(--footer-divider);
+            margin: 20px 0;
+            transition: background-color 0.5s ease;
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copyright {
+            color: var(--text-secondary);
+            font-size: 14px;
+            transition: color 0.5s ease;
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 15px;
+        }
+
+        .footer-social a {
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-accent);
+            border-radius: 50%;
+            border: var(--card-border);
+            color: var(--text-secondary);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .footer-social a:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-color);
+            border-radius: 50%;
+            transform: scale(0);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: -1;
+        }
+
+        .footer-social a:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
+            border-color: var(--accent-color);
+        }
+
+        .footer-social a:hover:before {
+            transform: scale(1);
+        }
+
+        .footer-social a i {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Back to top button */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s, opacity 0.5s, transform 0.5s;
+            z-index: 99;
+            opacity: 0;
+            transform: translateY(20px);
+            text-decoration: none;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .back-to-top:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Theme transition overlay */
+        .theme-transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-primary);
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+            border-radius: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 6px;
+            border: 3px solid var(--scrollbar-track);
+            transition: background-color 0.5s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+        /* Prefers color scheme media query */
+        @media (prefers-color-scheme: dark) {
+            body:not([data-theme-forced="light"]) {
+                --bg-primary: #0f0f0f;
+                --bg-secondary: #161616;
+                --bg-accent: #1e1e1e;
+                --text-primary: #f8f8f8;
+                --text-secondary: #bebebe;
+                --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+                --card-border: 1px solid #2a2a2a;
+                --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+                --header-bg: rgba(15, 15, 15, 0.9);
+                --switch-bg: #333333;
+                --switch-thumb: #6e56cf;
+                --switch-icon-color: #ffffff;
+                --footer-divider: #2a2a2a;
+                --scrollbar-track: #161616;
+                --scrollbar-thumb: #333333;
+            }
+        }
+
+        /* Responsive Design (Adapted from Landing Page) */
+        @media (max-width: 992px) {
+            .footer-content {
+                flex-wrap: wrap;
+                gap: 40px;
+            }
+
+            .footer-logo {
+                flex: 0 0 100%;
+                margin-bottom: 20px;
+            }
+
+            .footer-links {
+                flex: 0 0 calc(50% - 20px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .mobile-menu-btn {
+                display: flex;
+            }
+            
+            .mobile-menu {
+                border-top: 1px solid var(--card-border);
+            }
+            
+            .blog-post-title {
+                font-size: 36px;
+            }
+
+            .blog-post-content {
+                font-size: 16px;
+            }
+
+            .blog-post-content h2 {
+                font-size: 28px;
+            }
+
+            .blog-post-content h3 {
+                font-size: 22px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .performance-table {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light">
+
+    <!-- Theme transition overlay -->
+    <div class="theme-transition-overlay" id="themeOverlay"></div>
+
+    <!-- Header (Copied from Landing Page) -->
+    <header>
+        <div class="container">
+            <nav>
+                <a href="/" class="logo">Samir Adhikari</a>
+                <ul class="nav-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/blog.html">Blog</a></li>
+                </ul>
+                <!-- Mobile Menu Button -->
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+     <!-- Mobile Menu -->
+     <div class="mobile-menu" id="mobileMenu">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/blog.html">Blog</a></li>
+        </ul>
+    </div>
+
+    <!-- Blog Post Section -->
+    <section class="blog-post">
+        <div class="container">
+           
+            
+            <h1 class="blog-post-title">AWS Lambda Performance Optimization: Mastering Cold Starts and Cost Efficiency</h1>
+            <div class="blog-post-meta">
+                <span><i class="far fa-calendar-alt"></i> October 18, 2025</span>
+                <span><i class="far fa-user"></i> Samir Adhikari</span>
+                <span><i class="far fa-clock"></i> 20 min read</span>
+            </div>
+
+            <div class="blog-post-content">
+                <p>AWS Lambda performance optimization is crucial for building responsive, cost-effective serverless applications. This comprehensive guide explores advanced techniques for minimizing cold starts, optimizing memory allocation, reducing execution time, and achieving the perfect balance between performance and cost.</p>
+
+                <h2>Understanding Lambda Performance Fundamentals</h2>
+
+                <p>Lambda performance is influenced by several key factors:</p>
+                <ul>
+
+                <p>Lambda performance is influenced by several key factors:</p>
+                <ul>
+                    <li><strong>Cold Start Latency:</strong> Time to initialize new execution environments</li>
+                    <li><strong>Memory Allocation:</strong> Directly affects CPU power and cost</li>
+                    <li><strong>Runtime Choice:</strong> Different languages have varying startup characteristics</li>
+                    <li><strong>Code Size:</strong> Larger packages increase cold start time</li>
+                    <li><strong>VPC Configuration:</strong> Network setup can add significant latency</li>
+                </ul>
+
+                <h3>Cold Start Deep Dive</h3>
+
+                <p>Cold starts occur when Lambda creates a new execution environment. The process involves:</p>
+                <ol>
+                    <li><strong>Download Code:</strong> Fetching your deployment package</li>
+                    <li><strong>Start Runtime:</strong> Initialize the language runtime</li>
+                    <li><strong>Run Initialization:</strong> Execute code outside the handler</li>
+                    <li><strong>Run Handler:</strong> Execute your function code</li>
+                </ol>
+
+                <table class="performance-table">
+                    <thead>
+                        <tr>
+                            <th>Runtime</th>
+                            <th>Typical Cold Start</th>
+                            <th>Best Practices</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Python</td>
+                            <td>200-400ms</td>
+                            <td>Minimize imports, use layers</td>
+                        </tr>
+                        <tr>
+                            <td>Node.js</td>
+                            <td>100-300ms</td>
+                            <td>Avoid large node_modules</td>
+                        </tr>
+                        <tr>
+                            <td>Java</td>
+                            <td>1-3 seconds</td>
+                            <td>Use GraalVM, optimize JVM</td>
+                        </tr>
+                        <tr>
+                            <td>Go</td>
+                            <td>50-200ms</td>
+                            <td>Compiled binary, minimal overhead</td>
+                        </tr>
+                        <tr>
+                            <td>.NET</td>
+                            <td>500ms-2s</td>
+                            <td>AOT compilation, trimming</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>Advanced Cold Start Optimization</h2>
+
+                <h3>1. Optimized Initialization Pattern</h3>
+
+                <pre><code >import json
+import boto3
+import os
+from typing import Dict, Any
+import time
+
+# Global variables for connection reuse
+dynamodb = None
+s3_client = None
+secrets_cache = {}
+
+# Initialize connections outside handler
+def initialize_connections():
+    """Initialize AWS service clients outside the handler"""
+    global dynamodb, s3_client
+    
+    if dynamodb is None:
+        dynamodb = boto3.resource(
+            'dynamodb',
+            config=boto3.session.Config(
+                max_pool_connections=50,
+                retries={'max_attempts': 3}
+            )
+        )
+    
+    if s3_client is None:
+        s3_client = boto3.client('s3')
+
+def get_secret(secret_name: str) -> str:
+    """Cache secrets to avoid repeated API calls"""
+    if secret_name in secrets_cache:
+        return secrets_cache[secret_name]
+    
+    secrets_client = boto3.client('secretsmanager')
+    response = secrets_client.get_secret_value(SecretId=secret_name)
+    secret_value = response['SecretString']
+    
+    secrets_cache[secret_name] = secret_value
+    return secret_value
+
+# Initialize once during cold start
+initialize_connections()
+
+def lambda_handler(event, context):
+    """Optimized Lambda handler"""
+    start_time = time.time()
+    
+    try:
+        # Process event using pre-initialized connections
+        table = dynamodb.Table(os.environ['TABLE_NAME'])
+        
+        # Your business logic here
+        result = process_request(event, table)
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps(result),
+            'headers': {
+                'Content-Type': 'application/json'
+            }
+        }
+        
+    except Exception as e:
+        print(f"Error processing request: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'Internal server error'})
+        }
+    
+    finally:
+        execution_time = (time.time() - start_time) * 1000
+        print(f"Execution time: {execution_time:.2f}ms")
+
+def process_request(event: Dict[str, Any], table) -> Dict[str, Any]:
+    """Business logic processing"""
+    # Implementation here
+    pass
+</code></pre>
+
+                <h3>2. Memory Optimization Strategy</h3>
+
+                <pre><code >import boto3
+import json
+import psutil
+import os
+from typing import Dict, List
+
+class MemoryOptimizer:
+    def __init__(self):
+        self.memory_limit = int(os.environ.get('AWS_LAMBDA_FUNCTION_MEMORY_SIZE', 128))
+        self.cloudwatch = boto3.client('cloudwatch')
+    
+    def get_memory_usage(self) -> Dict[str, float]:
+        """Get current memory usage statistics"""
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        
+        memory_usage = {
+            'rss_mb': memory_info.rss / 1024 / 1024,  # Resident memory
+            'vms_mb': memory_info.vms / 1024 / 1024,  # Virtual memory
+            'percent': memory_info.rss / (self.memory_limit * 1024 * 1024) * 100
+        }
+        
+        return memory_usage
+    
+    def log_memory_metrics(self, function_name: str, memory_usage: Dict[str, float]):
+        """Send memory metrics to CloudWatch"""
+        try:
+            self.cloudwatch.put_metric_data(
+                Namespace='Lambda/Performance',
+                MetricData=[
+                    {
+                        'MetricName': 'MemoryUtilization',
+                        'Value': memory_usage['percent'],
+                        'Unit': 'Percent',
+                        'Dimensions': [
+                            {'Name': 'FunctionName', 'Value': function_name}
+                        ]
+                    },
+                    {
+                        'MetricName': 'MemoryUsed',
+                        'Value': memory_usage['rss_mb'],
+                        'Unit': 'Megabytes',
+                        'Dimensions': [
+                            {'Name': 'FunctionName', 'Value': function_name}
+                        ]
+                    }
+                ]
+            )
+        except Exception as e:
+            print(f"Failed to send memory metrics: {str(e)}")
+    
+    def recommend_memory_size(self, usage_history: List[float]) -> int:
+        """Recommend optimal memory size based on usage history"""
+        if not usage_history:
+            return self.memory_limit
+        
+        avg_usage = sum(usage_history) / len(usage_history)
+        max_usage = max(usage_history)
+        
+        # Add 20% buffer to max usage
+        recommended_mb = max_usage * 1.2
+        
+        # Round to nearest Lambda memory increment (64MB)
+        recommended_mb = ((recommended_mb + 31) // 64) * 64
+        
+        # Lambda memory limits
+        recommended_mb = max(128, min(10240, recommended_mb))
+        
+        return int(recommended_mb)
+
+# Usage in Lambda function
+memory_optimizer = MemoryOptimizer()
+
+def lambda_handler(event, context):
+    # Monitor memory at start
+    initial_memory = memory_optimizer.get_memory_usage()
+    
+    try:
+        # Your function logic
+        result = process_data(event)
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps(result)
+        }
+        
+    finally:
+        # Monitor memory at end
+        final_memory = memory_optimizer.get_memory_usage()
+        memory_optimizer.log_memory_metrics(
+            context.function_name, 
+            final_memory
+        )
+        
+        print(f"Memory usage: {final_memory['rss_mb']:.1f}MB "
+              f"({final_memory['percent']:.1f}%)")
+</code></pre>
+
+                <h3>3. Provisioned Concurrency Implementation</h3>
+
+                <pre><code ># SAM template for provisioned concurrency
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, prod]
+
+Resources:
+  HighPerformanceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      MemorySize: !If [IsProduction, 1024, 512]
+      Timeout: 30
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+      
+      # Provisioned concurrency for production
+      ProvisionedConcurrencyConfig: !If
+        - IsProduction
+        - ProvisionedConcurrencyEnabled: true
+          ProvisionedConcurrencyCount: 10
+        - !Ref AWS::NoValue
+      
+      # Auto-scaling for provisioned concurrency
+      AutoPublishAlias: live
+      DeploymentPreference:
+        Type: !If [IsProduction, Canary10Percent5Minutes, AllAtOnce]
+        Alarms:
+          - !Ref ErrorRateAlarm
+          - !Ref LatencyAlarm
+
+  # Application Auto Scaling for provisioned concurrency
+  ProvisionedConcurrencyScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Condition: IsProduction
+    Properties:
+      ServiceNamespace: lambda
+      ResourceId: !Sub "function:${HighPerformanceFunction}:live"
+      ScalableDimension: lambda:provisioned-concurrency:utilization
+      MinCapacity: 5
+      MaxCapacity: 100
+      RoleARN: !GetAtt AutoScalingRole.Arn
+
+  ProvisionedConcurrencyScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Condition: IsProduction
+    Properties:
+      PolicyName: ProvisionedConcurrencyScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ServiceNamespace: lambda
+      ScalingTargetId: !Ref ProvisionedConcurrencyScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 70.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: LambdaProvisionedConcurrencyUtilization
+
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Condition: IsProduction
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/ApplicationAutoScalingLambdaConcurrencyPolicy
+</code></pre>
+
+                <h2>Runtime-Specific Optimizations</h2>
+
+                <h3>Python Optimization Techniques</h3>
+
+                <pre><code ># requirements.txt - Minimize dependencies
+boto3>=1.26.0,<2.0.0
+requests>=2.28.0,<3.0.0
+
+# Avoid heavy dependencies
+# pandas  # Heavy data science library
+# numpy   # Heavy numerical library
+# avoid when possible for Lambda
+
+# Lambda layer structure for shared dependencies
+# layers/
+#   python/
+#     lib/
+#       python3.9/
+#         site-packages/
+#           boto3/
+#           requests/
+
+# Optimized imports - only import what you need
+def lambda_handler(event, context):
+    # Import inside handler for conditional imports
+    if event.get('action') == 'process_image':
+        from PIL import Image  # Only import when needed
+        return process_image(event)
+    elif event.get('action') == 'analyze_data':
+        import pandas as pd  # Only import when needed
+        return analyze_data(event)
+    else:
+        return handle_basic_request(event)
+
+# Use connection pooling
+import urllib3
+from botocore.config import Config
+
+# Configure with optimized settings
+config = Config(
+    max_pool_connections=50,
+    retries={'max_attempts': 3, 'mode': 'adaptive'},
+    tcp_keepalive=True
+)
+
+# Pre-compile regex patterns
+import re
+EMAIL_PATTERN = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+PHONE_PATTERN = re.compile(r'^\+?1?[-.\s]?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$')
+
+def validate_email(email: str) -> bool:
+    return bool(EMAIL_PATTERN.match(email))
+</code></pre>
+
+                <h3>Node.js Optimization</h3>
+
+                <pre><code >// package.json - Optimized for Lambda
+{
+  "name": "lambda-function",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1490.0",  // Use AWS SDK v2 for better cold start
+    "lodash": "^4.17.21"     // Only if absolutely necessary
+  },
+  "devDependencies": {
+    "webpack": "^5.88.0",    // Bundle for smaller deployment
+    "webpack-cli": "^5.1.4"
+  }
+}
+
+// webpack.config.js - Bundle optimization
+const path = require('path');
+
+module.exports = {
+  target: 'node',
+  mode: 'production',
+  entry: './src/index.js',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'index.js',
+    libraryTarget: 'commonjs2'
+  },
+  optimization: {
+    minimize: true,
+    sideEffects: false
+  },
+  externals: {
+    'aws-sdk': 'commonjs aws-sdk'  // AWS SDK is available in runtime
+  },
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [['@babel/preset-env', { targets: { node: '18' } }]]
+          }
+        }
+      }
+    ]
+  }
+};
+
+// Optimized Lambda function
+const AWS = require('aws-sdk');
+
+// Initialize outside handler
+const dynamodb = new AWS.DynamoDB.DocumentClient({
+  maxRetries: 3,
+  retryDelayOptions: { base: 300 }
+});
+
+const s3 = new AWS.S3({
+  maxRetries: 3
+});
+
+// Connection reuse
+const https = require('https');
+const agent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50
+});
+
+exports.handler = async (event, context) => {
+  // Enable connection reuse
+  context.callbackWaitsForEmptyEventLoop = false;
+  
+  const startTime = Date.now();
+  
+  try {
+    // Process request
+    const result = await processRequest(event);
+    
+    return {
+      statusCode: 200,
+      body: JSON.stringify(result),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+    
+  } catch (error) {
+    console.error('Error:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Internal server error' })
+    };
+  } finally {
+    const duration = Date.now() - startTime;
+    console.log(`Execution time: ${duration}ms`);
+  }
+};
+
+async function processRequest(event) {
+  // Your business logic
+  const params = {
+    TableName: process.env.TABLE_NAME,
+    Key: { id: event.id }
+  };
+  
+  const result = await dynamodb.get(params).promise();
+  return result.Item;
+}
+</code></pre>
+
+                <h2>Advanced Cost Optimization Strategies</h2>
+
+                <h3>Intelligent Memory Allocation</h3>
+
+                <pre><code >import boto3
+import json
+import statistics
+from datetime import datetime, timedelta
+from typing import List, Dict, Tuple
+
+class LambdaOptimizer:
+    def __init__(self):
+        self.cloudwatch = boto3.client('cloudwatch')
+        self.lambda_client = boto3.client('lambda')
+        self.pricing = {
+            'request_cost': 0.0000002,  # $0.20 per 1M requests
+            'gb_second_cost': 0.0000166667  # $0.0000166667 per GB-second
+        }
+    
+    def analyze_function_performance(self, function_name: str, days: int = 30) -> Dict:
+        """Analyze function performance and cost over time"""
+        
+        end_time = datetime.utcnow()
+        start_time = end_time - timedelta(days=days)
+        
+        # Get current function configuration
+        function_config = self.lambda_client.get_function_configuration(
+            FunctionName=function_name
+        )
+        
+        current_memory = function_config['MemorySize']
+        
+        # Get CloudWatch metrics
+        metrics = self._get_performance_metrics(function_name, start_time, end_time)
+        
+        # Calculate current costs
+        current_cost = self._calculate_cost(metrics, current_memory)
+        
+        # Test different memory configurations
+        optimization_results = self._test_memory_configurations(
+            function_name, metrics, current_memory
+        )
+        
+        return {
+            'function_name': function_name,
+            'current_memory': current_memory,
+            'current_monthly_cost': current_cost,
+            'metrics_summary': {
+                'avg_duration': statistics.mean(metrics['durations']),
+                'p95_duration': statistics.quantiles(metrics['durations'], n=20)[18],
+                'total_invocations': len(metrics['durations']),
+                'error_rate': len(metrics['errors']) / len(metrics['durations']) * 100
+            },
+            'optimization_recommendations': optimization_results
+        }
+    
+    def _get_performance_metrics(self, function_name: str, start_time: datetime, 
+                                end_time: datetime) -> Dict[str, List]:
+        """Fetch performance metrics from CloudWatch"""
+        
+        # Get duration metrics
+        duration_response = self.cloudwatch.get_metric_statistics(
+            Namespace='AWS/Lambda',
+            MetricName='Duration',
+            Dimensions=[{'Name': 'FunctionName', 'Value': function_name}],
+            StartTime=start_time,
+            EndTime=end_time,
+            Period=3600,  # 1 hour periods
+            Statistics=['Average', 'Maximum']
+        )
+        
+        # Get invocation count
+        invocations_response = self.cloudwatch.get_metric_statistics(
+            Namespace='AWS/Lambda',
+            MetricName='Invocations',
+            Dimensions=[{'Name': 'FunctionName', 'Value': function_name}],
+            StartTime=start_time,
+            EndTime=end_time,
+            Period=3600,
+            Statistics=['Sum']
+        )
+        
+        # Get error metrics
+        errors_response = self.cloudwatch.get_metric_statistics(
+            Namespace='AWS/Lambda',
+            MetricName='Errors',
+            Dimensions=[{'Name': 'FunctionName', 'Value': function_name}],
+            StartTime=start_time,
+            EndTime=end_time,
+            Period=3600,
+            Statistics=['Sum']
+        )
+        
+        return {
+            'durations': [dp['Average'] for dp in duration_response['Datapoints']],
+            'max_durations': [dp['Maximum'] for dp in duration_response['Datapoints']],
+            'invocations': [dp['Sum'] for dp in invocations_response['Datapoints']],
+            'errors': [dp['Sum'] for dp in errors_response['Datapoints'] if dp['Sum'] > 0]
+        }
+    
+    def _calculate_cost(self, metrics: Dict, memory_mb: int) -> float:
+        """Calculate monthly cost based on metrics and memory"""
+        total_invocations = sum(metrics['invocations'])
+        total_duration_ms = sum(
+            inv * dur for inv, dur in zip(metrics['invocations'], metrics['durations'])
+        )
+        
+        # Convert to GB-seconds
+        gb_seconds = (memory_mb / 1024) * (total_duration_ms / 1000)
+        
+        # Calculate costs
+        request_cost = total_invocations * self.pricing['request_cost']
+        compute_cost = gb_seconds * self.pricing['gb_second_cost']
+        
+        return request_cost + compute_cost
+    
+    def _test_memory_configurations(self, function_name: str, metrics: Dict, 
+                                  current_memory: int) -> List[Dict]:
+        """Test different memory configurations and estimate performance/cost"""
+        
+        memory_options = [128, 256, 512, 1024, 1536, 2048, 3072]
+        memory_options = [m for m in memory_options if m != current_memory]
+        
+        recommendations = []
+        
+        for memory in memory_options:
+            # Estimate performance improvement based on memory increase
+            # This is a simplified model - real testing would be more accurate
+            performance_ratio = min(memory / current_memory, 2.0)  # Cap at 2x improvement
+            
+            estimated_durations = [d / performance_ratio for d in metrics['durations']]
+            estimated_metrics = {
+                'durations': estimated_durations,
+                'invocations': metrics['invocations'],
+                'errors': metrics['errors']
+            }
+            
+            estimated_cost = self._calculate_cost(estimated_metrics, memory)
+            cost_difference = estimated_cost - self._calculate_cost(metrics, current_memory)
+            
+            avg_duration_improvement = statistics.mean(metrics['durations']) - statistics.mean(estimated_durations)
+            
+            recommendations.append({
+                'memory_mb': memory,
+                'estimated_monthly_cost': estimated_cost,
+                'cost_difference': cost_difference,
+                'avg_duration_improvement_ms': avg_duration_improvement,
+                'performance_improvement_percent': (avg_duration_improvement / statistics.mean(metrics['durations'])) * 100,
+                'recommendation': self._generate_recommendation(cost_difference, avg_duration_improvement)
+            })
+        
+        # Sort by cost-effectiveness
+        recommendations.sort(key=lambda x: x['cost_difference'])
+        
+        return recommendations[:3]  # Return top 3 recommendations
+    
+    def _generate_recommendation(self, cost_difference: float, 
+                               duration_improvement: float) -> str:
+        """Generate human-readable recommendation"""
+        if cost_difference < 0 and duration_improvement > 0:
+            return "HIGHLY RECOMMENDED: Better performance at lower cost"
+        elif cost_difference < 5 and duration_improvement > 100:
+            return "RECOMMENDED: Significant performance improvement for minimal cost"
+        elif cost_difference > 20:
+            return "NOT RECOMMENDED: High cost increase"
+        else:
+            return "CONSIDER: Evaluate based on performance requirements"
+
+# Usage
+optimizer = LambdaOptimizer()
+
+# Analyze all functions
+functions = ['user-service', 'order-service', 'notification-service']
+
+for function in functions:
+    analysis = optimizer.analyze_function_performance(function)
+    print(f"\nOptimization analysis for {function}:")
+    print(json.dumps(analysis, indent=2, default=str))
+</code></pre>
+
+                <h2>Performance Monitoring and Alerting</h2>
+
+                <h3>Advanced Performance Monitoring</h3>
+
+                <pre><code >import boto3
+import json
+from typing import Dict, List
+from datetime import datetime
+
+class PerformanceMonitor:
+    def __init__(self):
+        self.cloudwatch = boto3.client('cloudwatch')
+    
+    def setup_performance_alarms(self, function_name: str, 
+                                sns_topic_arn: str) -> List[str]:
+        """Set up comprehensive performance monitoring"""
+        
+        alarms_created = []
+        
+        # Cold Start Detection Alarm
+        cold_start_alarm = f"{function_name}-ColdStartSpike"
+        self.cloudwatch.put_metric_alarm(
+            AlarmName=cold_start_alarm,
+            ComparisonOperator='GreaterThanThreshold',
+            EvaluationPeriods=2,
+            MetricName='InitDuration',
+            Namespace='AWS/Lambda',
+            Period=300,
+            Statistic='Average',
+            Threshold=1000.0,  # 1 second
+            ActionsEnabled=True,
+            AlarmActions=[sns_topic_arn],
+            AlarmDescription='Cold starts taking too long',
+            Dimensions=[
+                {'Name': 'FunctionName', 'Value': function_name}
+            ]
+        )
+        alarms_created.append(cold_start_alarm)
+        
+        # Memory Pressure Alarm (Custom Metric)
+        memory_alarm = f"{function_name}-MemoryPressure"
+        self.cloudwatch.put_metric_alarm(
+            AlarmName=memory_alarm,
+            ComparisonOperator='GreaterThanThreshold',
+            EvaluationPeriods=3,
+            MetricName='MemoryUtilization',
+            Namespace='Lambda/Performance',
+            Period=300,
+            Statistic='Average',
+            Threshold=85.0,
+            ActionsEnabled=True,
+            AlarmActions=[sns_topic_arn],
+            AlarmDescription='High memory utilization detected',
+            Dimensions=[
+                {'Name': 'FunctionName', 'Value': function_name}
+            ]
+        )
+        alarms_created.append(memory_alarm)
+        
+        # Performance Degradation Alarm
+        performance_alarm = f"{function_name}-PerformanceDegradation"
+        self.cloudwatch.put_metric_alarm(
+            AlarmName=performance_alarm,
+            ComparisonOperator='GreaterThanThreshold',
+            EvaluationPeriods=3,
+            MetricName='Duration',
+            Namespace='AWS/Lambda',
+            Period=300,
+            Statistic='Average',
+            Threshold=5000.0,  # 5 seconds
+            ActionsEnabled=True,
+            AlarmActions=[sns_topic_arn],
+            AlarmDescription='Function duration degradation',
+            Dimensions=[
+                {'Name': 'FunctionName', 'Value': function_name}
+            ]
+        )
+        alarms_created.append(performance_alarm)
+        
+        # Cost Spike Alarm (Custom Metric)
+        cost_alarm = f"{function_name}-CostSpike"
+        self.cloudwatch.put_metric_alarm(
+            AlarmName=cost_alarm,
+            ComparisonOperator='GreaterThanThreshold',
+            EvaluationPeriods=1,
+            MetricName='EstimatedCost',
+            Namespace='Lambda/Billing',
+            Period=3600,  # 1 hour
+            Statistic='Sum',
+            Threshold=10.0,  # $10 per hour
+            ActionsEnabled=True,
+            AlarmActions=[sns_topic_arn],
+            AlarmDescription='Unexpected cost spike detected',
+            Dimensions=[
+                {'Name': 'FunctionName', 'Value': function_name}
+            ]
+        )
+        alarms_created.append(cost_alarm)
+        
+        return alarms_created
+    
+    def create_performance_dashboard(self, functions: List[str]) -> str:
+        """Create comprehensive performance dashboard"""
+        
+        dashboard_widgets = []
+        
+        # Cold Start Analysis
+        cold_start_widget = {
+            "type": "metric",
+            "x": 0, "y": 0, "width": 12, "height": 6,
+            "properties": {
+                "metrics": [
+                    ["AWS/Lambda", "InitDuration", "FunctionName", func] 
+                    for func in functions
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "us-east-1",
+                "title": "Cold Start Performance",
+                "view": "timeSeries"
+            }
+        }
+        dashboard_widgets.append(cold_start_widget)
+        
+        # Memory Utilization
+        memory_widget = {
+            "type": "metric",
+            "x": 12, "y": 0, "width": 12, "height": 6,
+            "properties": {
+                "metrics": [
+                    ["Lambda/Performance", "MemoryUtilization", "FunctionName", func] 
+                    for func in functions
+                ],
+                "period": 300,
+                "stat": "Average",
+                "region": "us-east-1",
+                "title": "Memory Utilization %",
+                "view": "timeSeries",
+                "yAxis": {"left": {"min": 0, "max": 100}}
+            }
+        }
+        dashboard_widgets.append(memory_widget)
+        
+        # Cost Analysis
+        cost_widget = {
+            "type": "metric",
+            "x": 0, "y": 6, "width": 24, "height": 6,
+            "properties": {
+                "metrics": [
+                    ["Lambda/Billing", "EstimatedCost", "FunctionName", func] 
+                    for func in functions
+                ],
+                "period": 3600,
+                "stat": "Sum",
+                "region": "us-east-1",
+                "title": "Estimated Hourly Costs ($)",
+                "view": "timeSeries"
+            }
+        }
+        dashboard_widgets.append(cost_widget)
+        
+        dashboard_body = {"widgets": dashboard_widgets}
+        
+        response = self.cloudwatch.put_dashboard(
+            DashboardName='LambdaPerformanceOptimization',
+            DashboardBody=json.dumps(dashboard_body)
+        )
+        
+        return response['DashboardArn']
+
+# Enhanced Lambda function with performance tracking
+class PerformanceTracker:
+    def __init__(self, function_name: str):
+        self.function_name = function_name
+        self.cloudwatch = boto3.client('cloudwatch')
+    
+    def track_performance(self, execution_time: float, memory_used: float, 
+                         memory_limit: int, is_cold_start: bool = False):
+        """Track detailed performance metrics"""
+        
+        metrics = [
+            {
+                'MetricName': 'ExecutionTime',
+                'Value': execution_time,
+                'Unit': 'Milliseconds',
+                'Dimensions': [
+                    {'Name': 'FunctionName', 'Value': self.function_name}
+                ]
+            },
+            {
+                'MetricName': 'MemoryUtilization',
+                'Value': (memory_used / memory_limit) * 100,
+                'Unit': 'Percent',
+                'Dimensions': [
+                    {'Name': 'FunctionName', 'Value': self.function_name}
+                ]
+            }
+        ]
+        
+        if is_cold_start:
+            metrics.append({
+                'MetricName': 'ColdStart',
+                'Value': 1,
+                'Unit': 'Count',
+                'Dimensions': [
+                    {'Name': 'FunctionName', 'Value': self.function_name}
+                ]
+            })
+        
+        # Estimate cost
+        estimated_cost = self._calculate_execution_cost(execution_time, memory_limit)
+        metrics.append({
+            'MetricName': 'EstimatedCost',
+            'Value': estimated_cost,
+            'Unit': 'None',
+            'Dimensions': [
+                {'Name': 'FunctionName', 'Value': self.function_name}
+            ]
+        })
+        
+        try:
+            self.cloudwatch.put_metric_data(
+                Namespace='Lambda/Performance',
+                MetricData=metrics
+            )
+        except Exception as e:
+            print(f"Failed to send performance metrics: {str(e)}")
+    
+    def _calculate_execution_cost(self, execution_time_ms: float, memory_mb: int) -> float:
+        """Calculate cost for this execution"""
+        gb_seconds = (memory_mb / 1024) * (execution_time_ms / 1000)
+        return gb_seconds * 0.0000166667  # GB-second cost
+</code></pre>
+
+                <div class="highlight">
+                    <h2>Performance Optimization Checklist</h2>
+                    <ul>
+                        <li>☐ <strong>Optimize Cold Starts:</strong> Minimize initialization code, use layers, consider provisioned concurrency</li>
+                        <li>☐ <strong>Right-size Memory:</strong> Use AWS Lambda Power Tuning or custom analysis</li>
+                        <li>☐ <strong>Connection Reuse:</strong> Initialize SDK clients outside handler</li>
+                        <li>☐ <strong>Minimize Dependencies:</strong> Use layers, webpack bundling, or runtime optimization</li>
+                        <li>☐ <strong>Monitor Performance:</strong> Set up alarms for duration, memory, and cost</li>
+                        <li>☐ <strong>Implement Caching:</strong> Cache database connections, API responses, and computed values</li>
+                        <li>☐ <strong>Optimize Code Path:</strong> Use conditional imports and lazy loading</li>
+                        <li>☐ <strong>Test Different Configurations:</strong> A/B test memory sizes and runtime versions</li>
+                    </ul>
+                </div>
+
+                <h2>Conclusion</h2>
+
+                <p>AWS Lambda performance optimization is an ongoing process that requires careful monitoring, analysis, and iterative improvements. By implementing the strategies covered in this guide—from cold start optimization and memory tuning to advanced monitoring and cost analysis—you can achieve significant improvements in both performance and cost efficiency.</p>
+
+                <p>Remember that optimization is highly dependent on your specific use case. What works for one application might not be optimal for another. Use the monitoring and analysis tools provided to make data-driven optimization decisions.</p>
+
+                <p>The key to successful Lambda optimization is finding the right balance between performance, cost, and operational complexity. Start with the basics—proper initialization, connection reuse, and memory optimization—then move on to advanced techniques like provisioned concurrency and custom monitoring as your application scales.</p>
+
+                <div class="highlight">
+                    <p><strong>Pro Tip:</strong> Automate your optimization process by setting up regular performance reviews and cost analyses. Use the provided scripts as a foundation for building your own optimization pipelines.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer (Copied from Landing Page) -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h3>Samir Adhikari</h3>
+                    <p>A blog dedicated to sharing AWS insights, DevOps practices, and cloud solution strategies.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="/">Home</a></li>
+                        <li><a href="/blog.html">Blog</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Categories</h4>
+                    <ul>
+                        <li><a href="#">AWS</a></li>
+                        <li><a href="#">DevOps</a></li>
+                        <li><a href="#">Cloud Solutions</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Contact</h4>
+                    <ul>
+                        <li><a href="mailto:samir.adhh@email.com">samir.adhhh@gmail.com</a></li>
+                        <li><a href="#">9861762422</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-divider"></div>
+            <div class="footer-bottom">
+                <div class="copyright">© 2025 Samir Adhikari. All rights reserved.</div>
+                <div class="footer-social">
+                    <a href="#"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-instagram"></i></a>
+                    <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Back to top button -->
+    <a href="#" class="back-to-top" id="backToTopBtn">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- Theme Toggle ---
+            const checkbox = document.getElementById('checkbox');
+            const themeOverlay = document.getElementById('themeOverlay');
+
+            function showThemeTransition() {
+                if (themeOverlay) {
+                    themeOverlay.style.display = 'block';
+                    themeOverlay.style.opacity = '1';
+                    setTimeout(() => {
+                        themeOverlay.style.opacity = '0';
+                        setTimeout(() => {
+                            themeOverlay.style.display = 'none';
+                        }, 500);
+                    }, 500);
+                }
+            }
+
+            function setTheme(theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+            }
+
+            if (checkbox) {
+                checkbox.addEventListener('change', () => {
+                    const theme = checkbox.checked ? 'dark' : 'light';
+                    showThemeTransition();
+                    setTheme(theme);
+                });
+            }
+
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme) {
+                setTheme(storedTheme);
+                if (checkbox) checkbox.checked = storedTheme === 'dark';
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                setTheme('dark');
+                if (checkbox) checkbox.checked = true;
+            }
+
+             // --- Back to Top Button ---
+             const backToTopBtn = document.getElementById('backToTopBtn');
+            if (backToTopBtn) {
+                window.addEventListener('scroll', () => {
+                    backToTopBtn.classList.toggle('visible', window.pageYOffset > 300);
+                });
+
+                backToTopBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            }
+
+            // --- Mobile Menu ---
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+
+            if (mobileMenuBtn && mobileMenu) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    mobileMenu.classList.toggle('active');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

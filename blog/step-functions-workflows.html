@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://img.icons8.com/ios-filled/50/000000/infinity.png" type="image/png">
+    <title>Orchestrating Serverless Workflows with AWS Step Functions - Samir Adhikari</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NQYZ1YTN96"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-NQYZ1YTN96');
+</script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+        /* Light Theme Variables */
+        :root {
+            --bg-primary: #f8f8f8;
+            --bg-secondary: #ffffff;
+            --bg-accent: #f0f0f0;
+            --text-primary: #222222;
+            --text-secondary: #555555;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.2);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.2);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.2);
+            --card-border: 1px solid #e0e0e0;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.3), 0 0 20px rgba(110, 86, 207, 0.1);
+            --header-bg: rgba(255, 255, 255, 0.9);
+            --switch-bg: #e0e0e0;
+            --switch-thumb: #ffffff;
+            --switch-icon-color: #6e56cf;
+            --footer-divider: #e0e0e0;
+            --scrollbar-track: #f0f0f0;
+            --scrollbar-thumb: #cccccc;
+        }
+
+        /* Dark Theme Variables */
+        :root[data-theme="dark"] {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #161616;
+            --bg-accent: #1e1e1e;
+            --text-primary: #f8f8f8;
+            --text-secondary: #bebebe;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.3);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #1e1e1e 0%, #3b3b3b 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+            --card-border: 1px solid #2a2a2a;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+            --header-bg: rgba(15, 15, 15, 0.9);
+            --switch-bg: #333333;
+            --switch-thumb: #6e56cf;
+            --switch-icon-color: #ffffff;
+            --footer-divider: #2a2a2a;
+            --scrollbar-track: #161616;
+            --scrollbar-thumb: #333333;
+        }
+
+        /* General Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        h1, h2, h3, h4, h5 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--header-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0 20px;
+            border-bottom: var(--card-border);
+            transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+        }
+
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: color 0.5s ease;
+        }
+
+        .logo::before {
+            content: "";
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 10px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: var(--shadow-glow);
+            transition: background-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+        }
+
+        .nav-links li {
+            margin-left: 40px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 16px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--accent-color);
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-color);
+            text-shadow: var(--neon-glow);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Theme Switch (Copied from Landing Page) */
+        .theme-switch-wrapper {
+            display: flex;
+            align-items: center;
+            margin-left: 30px;
+            position: relative;
+        }
+
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 32px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--switch-bg);
+            transition: .4s;
+            border-radius: 34px;
+            overflow: hidden;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 4px;
+            bottom: 4px;
+            background-color: var(--switch-thumb);
+            transition: .4s;
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        /* Switch icons */
+        .slider .switch-icon {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1;
+            color: var(--switch-icon-color);
+            transition: opacity 0.3s, transform 0.5s;
+        }
+
+        .slider .sun-icon {
+            right: 9px;
+            opacity: 1;
+        }
+
+        .slider .moon-icon {
+            left: 7px;
+            opacity: 0;
+        }
+
+        input:checked + .slider .sun-icon {
+            opacity: 0;
+        }
+
+        input:checked + .slider .moon-icon {
+            opacity: 1;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(28px);
+            background-color: var(--accent-color);
+        }
+
+        /* Mobile Menu */
+        .mobile-menu-btn {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 30px;
+            height: 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 20px;
+        }
+
+        .mobile-menu-btn span {
+            height: 2px;
+            width: 100%;
+            background-color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu {
+            position: fixed;
+            top: 80px;
+            left: 0;
+            width: 100%;
+            height: 0;
+            background-color: var(--bg-secondary);
+            overflow: hidden;
+            transition: height 0.3s ease;
+            z-index: 99;
+            opacity: 0;
+            box-shadow: var(--shadow-md);
+        }
+
+        .mobile-menu.active {
+            height: auto;
+            opacity: 1;
+            box-shadow: var(--shadow-md);
+            border-bottom: var(--card-border);
+        }
+
+        .mobile-menu ul {
+            list-style: none;
+            padding: 20px;
+        }
+
+        .mobile-menu li {
+            margin: 15px 0;
+        }
+
+        .mobile-menu a {
+            font-size: 18px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.3s;
+            display: block;
+            padding: 10px 0;
+        }
+
+        .mobile-menu a:hover {
+            color: var(--accent-color);
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: flex;
+            }
+        }
+
+        /* Blog Post Styles */
+        .blog-post {
+            padding: 80px 0;
+        }
+
+        .blog-post-title {
+            font-size: 42px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-meta {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 40px;
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-meta span {
+            margin: 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .blog-post-meta i {
+            color: var(--accent-color);
+        }
+
+        .blog-post-image {
+            max-width: 800px;
+            margin: 0 auto 40px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .blog-post-image img {
+            width: 100%;
+            display: block;
+        }
+
+        .blog-post-content {
+            max-width: 800px;
+            margin: 0 auto;
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-content h2 {
+            font-size: 32px;
+            margin: 40px 0 20px;
+        }
+
+        .blog-post-content h3 {
+            font-size: 26px;
+            margin: 30px 0 15px;
+        }
+
+        .blog-post-content p {
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content ul,
+        .blog-post-content ol {
+            padding-left: 30px;
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content li {
+            margin-bottom: 10px;
+        }
+
+        .blog-post-content a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .blog-post-content a:hover {
+            color: var(--accent-hover);
+        }
+
+        .blog-post-content blockquote {
+            border-left: 5px solid var(--accent-color);
+            padding: 15px 20px;
+            margin: 30px 0;
+            background-color: var(--bg-accent);
+            border-radius: 5px;
+            font-style: italic;
+            color: var(--text-secondary);
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .blog-post-content pre {
+            background-color: var(--bg-accent);
+            color: var(--text-primary);
+            padding: 15px;
+            overflow-x: auto;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .blog-post-content code {
+            font-family: monospace, monospace;
+            font-size: 16px;
+            display: block;
+        }
+
+        .blog-post-content pre code {
+            background: none;
+            padding: 0;
+            font-size: 16px;
+            color: var(--text-primary);
+            display: block;
+        }
+
+        .blog-post-content p code {
+            background-color: var(--bg-accent);
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-family: monospace, monospace;
+            font-size: 14px;
+            color: var(--text-primary);
+            transition: background-color 0.5s ease, color 0.5s ease;
+            display: inline;
+        }
+
+        .highlight {
+            background: linear-gradient(120deg, var(--accent-muted) 0%, var(--accent-muted) 100%);
+            padding: 25px;
+            border-left: 4px solid var(--accent-color);
+            margin: 30px 0;
+            border-radius: 0 8px 8px 0;
+            transition: background 0.5s ease;
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 80px 0 40px;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 50px;
+        }
+
+        .footer-logo {
+            flex: 0 0 30%;
+        }
+
+        .footer-logo h3 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-logo p {
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            font-size: 15px;
+            transition: color 0.5s ease;
+        }
+
+        .footer-links {
+            flex: 0 0 20%;
+        }
+
+        .footer-links h4 {
+            font-size: 20px;
+            margin-bottom: 25px;
+            position: relative;
+            padding-bottom: 12px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-links h4::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--accent-color);
+        }
+
+        .footer-links ul {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 12px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-color);
+        }
+
+        .footer-divider {
+            height: 1px;
+            background-color: var(--footer-divider);
+            margin: 20px 0;
+            transition: background-color 0.5s ease;
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copyright {
+            color: var(--text-secondary);
+            font-size: 14px;
+            transition: color 0.5s ease;
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 15px;
+        }
+
+        .footer-social a {
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-accent);
+            border-radius: 50%;
+            border: var(--card-border);
+            color: var(--text-secondary);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .footer-social a:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-color);
+            border-radius: 50%;
+            transform: scale(0);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: -1;
+        }
+
+        .footer-social a:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
+            border-color: var(--accent-color);
+        }
+
+        .footer-social a:hover:before {
+            transform: scale(1);
+        }
+
+        .footer-social a i {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Back to top button */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s, opacity 0.5s, transform 0.5s;
+            z-index: 99;
+            opacity: 0;
+            transform: translateY(20px);
+            text-decoration: none;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .back-to-top:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Theme transition overlay */
+        .theme-transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-primary);
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+         /* Custom scrollbar */
+         ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px; /* Added height for horizontal scrollbar */
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+            border-radius: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 6px;
+            border: 3px solid var(--scrollbar-track);
+            transition: background-color 0.5s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+          /* Prefers color scheme media query */
+        @media (prefers-color-scheme: dark) {
+            body:not([data-theme-forced="light"]) {
+                --bg-primary: #0f0f0f;
+                --bg-secondary: #161616;
+                --bg-accent: #1e1e1e;
+                --text-primary: #f8f8f8;
+                --text-secondary: #bebebe;
+                --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+                --card-border: 1px solid #2a2a2a;
+                --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+                --header-bg: rgba(15, 15, 15, 0.9);
+                --switch-bg: #333333;
+                --switch-thumb: #6e56cf;
+                --switch-icon-color: #ffffff;
+                --footer-divider: #2a2a2a;
+                --scrollbar-track: #161616;
+                --scrollbar-thumb: #333333;
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .footer-content {
+                flex-wrap: wrap;
+                gap: 40px;
+            }
+
+            .footer-logo {
+                flex: 0 0 100%;
+                margin-bottom: 20px;
+            }
+
+            .footer-links {
+                flex: 0 0 calc(50% - 20px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .mobile-menu-btn {
+                display: flex;
+            }
+            
+            .mobile-menu {
+                border-top: 1px solid var(--card-border);
+            }
+            
+            .blog-post-title {
+                font-size: 36px;
+            }
+
+            .blog-post-content {
+                font-size: 16px;
+            }
+
+            .blog-post-content h2 {
+                font-size: 28px;
+            }
+
+            .blog-post-content h3 {
+                font-size: 22px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light">
+
+    <!-- Theme transition overlay -->
+    <div class="theme-transition-overlay" id="themeOverlay"></div>
+
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <nav>
+                <a href="/" class="logo">Samir Adhikari</a>
+                <ul class="nav-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/blog.html">Blog</a></li>
+                </ul>
+                <!-- Mobile Menu Button -->
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+     <!-- Mobile Menu -->
+     <div class="mobile-menu" id="mobileMenu">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/blog.html">Blog</a></li>
+        </ul>
+    </div>
+
+    <!-- Blog Post Section -->
+    <section class="blog-post">
+        <div class="container">
+            <h1 class="blog-post-title">Orchestrating Serverless Workflows with AWS Step Functions</h1>
+            <div class="blog-post-meta">
+                <span><i class="far fa-calendar-alt"></i> September 14, 2025</span>
+                <span><i class="far fa-user"></i> Samir Adhikari</span>
+                <span><i class="far fa-clock"></i> 15 min read</span>
+                <span><i class="fas fa-tags"></i> Serverless, Step Functions, Workflows</span>
+            </div>
+
+            <div class="blog-post-content">
+                <p>Complex business processes often require orchestrating multiple serverless functions in a specific sequence. AWS Step Functions provides a powerful solution for building reliable, scalable workflows that coordinate distributed serverless applications. In this comprehensive guide, we'll explore how to design, implement, and optimize serverless workflows.</p>
+
+                <h2>Understanding AWS Step Functions</h2>
+
+                <p>AWS Step Functions is a serverless orchestration service that lets you coordinate multiple AWS services into serverless workflows. It uses Amazon States Language (ASL) to define state machines that can:</p>
+
+                <ul>
+                    <li><strong>Sequence execution:</strong> Run functions in a specific order</li>
+                    <li><strong>Parallel processing:</strong> Execute multiple branches simultaneously</li>
+                    <li><strong>Conditional branching:</strong> Make decisions based on data</li>
+                    <li><strong>Error handling:</strong> Implement retry logic and error recovery</li>
+                    <li><strong>Human approval:</strong> Wait for manual intervention when needed</li>
+                </ul>
+
+                <h2>Real-World Use Case: E-commerce Order Processing</h2>
+
+                <p>Let's build a comprehensive order processing workflow that handles:</p>
+
+                <div class="workflow-diagram">
+                    <p><strong>Order Processing Workflow</strong></p>
+                    <p>Validate Order → Check Inventory → Process Payment → Update Database → Send Notifications</p>
+                    <p>└── Error Handling at Each Step ──┘</p>
+                </div>
+
+                <h2>Defining the State Machine</h2>
+
+                <h3>Main Workflow Definition</h3>
+
+                <pre><code>{
+  "Comment": "E-commerce Order Processing Workflow",
+  "StartAt": "ValidateOrder",
+  "States": {
+    "ValidateOrder": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "validate-order-function",
+        "Payload.$": "$"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleValidationError",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "CheckInventoryParallel"
+    },
+    
+    "CheckInventoryParallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "CheckInventory",
+          "States": {
+            "CheckInventory": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "check-inventory-function",
+                "Payload.$": "$"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "CheckPromotion",
+          "States": {
+            "CheckPromotion": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "check-promotion-function",
+                "Payload.$": "$"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.parallelResults",
+      "Next": "EvaluateInventoryStatus"
+    },
+
+    "EvaluateInventoryStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.parallelResults[0].inventoryAvailable",
+          "BooleanEquals": true,
+          "Next": "ProcessPayment"
+        },
+        {
+          "Variable": "$.parallelResults[0].inventoryAvailable",
+          "BooleanEquals": false,
+          "Next": "HandleInsufficientInventory"
+        }
+      ],
+      "Default": "HandleInventoryError"
+    },
+
+    "ProcessPayment": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "process-payment-function",
+        "Payload.$": "$"
+      },
+      "TimeoutSeconds": 30,
+      "Retry": [
+        {
+          "ErrorEquals": ["PaymentGatewayException"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["PaymentFailedException"],
+          "Next": "HandlePaymentFailure",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "UpdateOrderStatus"
+    },
+
+    "UpdateOrderStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "Orders",
+        "Item": {
+          "orderId": {"S.$": "$.orderId"},
+          "status": {"S": "PROCESSED"},
+          "processedAt": {"S.$": "$$.State.EnteredTime"},
+          "paymentId": {"S.$": "$.paymentId"}
+        }
+      },
+      "Next": "SendNotifications"
+    },
+
+    "SendNotifications": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "SendCustomerEmail",
+          "States": {
+            "SendCustomerEmail": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:region:account:customer-notifications",
+                "Message.$": "$.customerNotification"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "SendInventoryUpdate",
+          "States": {
+            "SendInventoryUpdate": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sqs:sendMessage",
+              "Parameters": {
+                "QueueUrl": "https://sqs.region.amazonaws.com/account/inventory-updates",
+                "MessageBody.$": "$.inventoryUpdate"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "OrderProcessingComplete"
+    },
+
+    "OrderProcessingComplete": {
+      "Type": "Pass",
+      "Result": {
+        "status": "SUCCESS",
+        "message": "Order processed successfully"
+      },
+      "End": true
+    },
+
+    "HandleValidationError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "handle-error-function",
+        "Payload": {
+          "errorType": "VALIDATION_ERROR",
+          "originalInput.$": "$",
+          "error.$": "$.error"
+        }
+      },
+      "Next": "OrderProcessingFailed"
+    },
+
+    "HandleInsufficientInventory": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "handle-backorder-function",
+        "Payload.$": "$"
+      },
+      "Next": "OrderProcessingComplete"
+    },
+
+    "HandlePaymentFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:region:account:payment-failures",
+        "Message.$": "States.Format('Payment failed for order {}. Error: {}', $.orderId, $.error.Cause)"
+      },
+      "Next": "OrderProcessingFailed"
+    },
+
+    "HandleInventoryError": {
+      "Type": "Fail",
+      "Error": "InventoryCheckFailed",
+      "Cause": "Unable to determine inventory status"
+    },
+
+    "OrderProcessingFailed": {
+      "Type": "Fail",
+      "Error": "OrderProcessingFailed",
+      "Cause": "Order could not be processed"
+    }
+  }
+}
+</code></pre>
+
+                <h2>Lambda Functions Implementation</h2>
+
+                <h3>Order Validation Function</h3>
+
+                <pre><code >import json
+import boto3
+from decimal import Decimal
+
+def lambda_handler(event, context):
+    """
+    Validate order details and customer information
+    """
+    try:
+        order_data = event
+        
+        # Validate required fields
+        required_fields = ['orderId', 'customerId', 'items', 'totalAmount']
+        for field in required_fields:
+            if field not in order_data:
+                raise ValidationError(f"Missing required field: {field}")
+        
+        # Validate order items
+        if not order_data['items'] or len(order_data['items']) == 0:
+            raise ValidationError("Order must contain at least one item")
+        
+        # Validate total amount
+        total_amount = Decimal(str(order_data['totalAmount']))
+        if total_amount <= 0:
+            raise ValidationError("Total amount must be greater than zero")
+        
+        # Calculate and verify total
+        calculated_total = Decimal('0')
+        for item in order_data['items']:
+            item_total = Decimal(str(item['price'])) * int(item['quantity'])
+            calculated_total += item_total
+        
+        if abs(calculated_total - total_amount) > Decimal('0.01'):
+            raise ValidationError("Total amount does not match item calculations")
+        
+        # Validate customer
+        dynamodb = boto3.resource('dynamodb')
+        customers_table = dynamodb.Table('Customers')
+        
+        customer_response = customers_table.get_item(
+            Key={'customerId': order_data['customerId']}
+        )
+        
+        if 'Item' not in customer_response:
+            raise ValidationError("Customer not found")
+        
+        customer = customer_response['Item']
+        if customer.get('status') != 'ACTIVE':
+            raise ValidationError("Customer account is not active")
+        
+        # Add customer info to order data
+        order_data['customerInfo'] = {
+            'email': customer['email'],
+            'name': customer['name'],
+            'tier': customer.get('tier', 'STANDARD')
+        }
+        
+        return {
+            'statusCode': 200,
+            'isValid': True,
+            **order_data
+        }
+        
+    except ValidationError as e:
+        return {
+            'statusCode': 400,
+            'isValid': False,
+            'error': str(e)
+        }
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        raise
+
+class ValidationError(Exception):
+    pass
+</code></pre>
+
+                <h3>Inventory Check Function</h3>
+
+                <pre><code >import json
+import boto3
+from boto3.dynamodb.conditions import Key
+
+def lambda_handler(event, context):
+    """
+    Check inventory availability for order items
+    """
+    try:
+        order_data = event
+        items = order_data['items']
+        
+        dynamodb = boto3.resource('dynamodb')
+        inventory_table = dynamodb.Table('Inventory')
+        
+        inventory_results = []
+        all_available = True
+        
+        for item in items:
+            product_id = item['productId']
+            requested_quantity = int(item['quantity'])
+            
+            # Get current inventory
+            response = inventory_table.get_item(
+                Key={'productId': product_id}
+            )
+            
+            if 'Item' not in response:
+                inventory_results.append({
+                    'productId': product_id,
+                    'available': False,
+                    'reason': 'Product not found',
+                    'requestedQuantity': requested_quantity,
+                    'availableQuantity': 0
+                })
+                all_available = False
+                continue
+            
+            inventory_item = response['Item']
+            available_quantity = int(inventory_item['quantity'])
+            reserved_quantity = int(inventory_item.get('reserved', 0))
+            actual_available = available_quantity - reserved_quantity
+            
+            if actual_available >= requested_quantity:
+                inventory_results.append({
+                    'productId': product_id,
+                    'available': True,
+                    'requestedQuantity': requested_quantity,
+                    'availableQuantity': actual_available
+                })
+                
+                # Reserve the inventory
+                inventory_table.update_item(
+                    Key={'productId': product_id},
+                    UpdateExpression='SET reserved = reserved + :qty',
+                    ExpressionAttributeValues={':qty': requested_quantity}
+                )
+            else:
+                inventory_results.append({
+                    'productId': product_id,
+                    'available': False,
+                    'reason': 'Insufficient quantity',
+                    'requestedQuantity': requested_quantity,
+                    'availableQuantity': actual_available
+                })
+                all_available = False
+        
+        return {
+            'inventoryAvailable': all_available,
+            'inventoryResults': inventory_results,
+            'reservationId': context.aws_request_id if all_available else None,
+            **order_data
+        }
+        
+    except Exception as e:
+        print(f"Inventory check error: {str(e)}")
+        return {
+            'inventoryAvailable': False,
+            'error': str(e),
+            **event
+        }
+</code></pre>
+
+                <h3>Payment Processing Function</h3>
+
+                <pre><code >import json
+import boto3
+import uuid
+from decimal import Decimal
+import stripe
+
+# Configure Stripe (or your preferred payment processor)
+stripe.api_key = os.environ['STRIPE_SECRET_KEY']
+
+def lambda_handler(event, context):
+    """
+    Process payment for the order
+    """
+    try:
+        order_data = event
+        
+        # Apply any discounts from promotion check
+        total_amount = calculate_final_amount(order_data)
+        
+        # Create payment intent
+        payment_intent = stripe.PaymentIntent.create(
+            amount=int(total_amount * 100),  # Stripe expects cents
+            currency='usd',
+            customer=order_data['customerInfo']['stripeCustomerId'],
+            metadata={
+                'orderId': order_data['orderId'],
+                'customerId': order_data['customerId']
+            }
+        )
+        
+        # Confirm payment
+        confirmed_payment = stripe.PaymentIntent.confirm(
+            payment_intent.id,
+            payment_method=order_data['paymentMethodId']
+        )
+        
+        if confirmed_payment.status == 'succeeded':
+            # Record payment in database
+            dynamodb = boto3.resource('dynamodb')
+            payments_table = dynamodb.Table('Payments')
+            
+            payment_record = {
+                'paymentId': confirmed_payment.id,
+                'orderId': order_data['orderId'],
+                'customerId': order_data['customerId'],
+                'amount': total_amount,
+                'currency': 'USD',
+                'status': 'COMPLETED',
+                'processedAt': context.aws_request_id,
+                'paymentMethod': order_data['paymentMethodId']
+            }
+            
+            payments_table.put_item(Item=payment_record)
+            
+            return {
+                'paymentStatus': 'SUCCESS',
+                'paymentId': confirmed_payment.id,
+                'amountCharged': total_amount,
+                **order_data
+            }
+        else:
+            raise PaymentFailedException(f"Payment failed with status: {confirmed_payment.status}")
+            
+    except stripe.error.CardError as e:
+        # Card was declined
+        raise PaymentFailedException(f"Card declined: {str(e)}")
+    except stripe.error.StripeError as e:
+        # Other Stripe errors
+        raise PaymentGatewayException(f"Payment gateway error: {str(e)}")
+    except Exception as e:
+        print(f"Payment processing error: {str(e)}")
+        raise
+
+def calculate_final_amount(order_data):
+    """Calculate final amount after applying promotions"""
+    total_amount = Decimal(str(order_data['totalAmount']))
+    
+    # Apply promotion discount if available
+    parallel_results = order_data.get('parallelResults', [])
+    if len(parallel_results) > 1:
+        promotion_result = parallel_results[1]
+        if promotion_result.get('discountApplicable'):
+            discount_amount = total_amount * Decimal(str(promotion_result['discountPercentage'] / 100))
+            total_amount -= discount_amount
+    
+    return total_amount
+
+class PaymentFailedException(Exception):
+    pass
+
+class PaymentGatewayException(Exception):
+    pass
+</code></pre>
+
+                <h2>Advanced Step Functions Patterns</h2>
+
+                <h3>Wait States and Timeouts</h3>
+
+                <pre><code >{
+  "WaitForApproval": {
+    "Type": "Task",
+    "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+    "Parameters": {
+      "FunctionName": "request-approval-function",
+      "Payload": {
+        "orderId.$": "$.orderId",
+        "taskToken.$": "$$.Task.Token"
+      }
+    },
+    "TimeoutSeconds": 3600,
+    "Catch": [
+      {
+        "ErrorEquals": ["States.Timeout"],
+        "Next": "HandleApprovalTimeout"
+      }
+    ],
+    "Next": "ProcessApprovedOrder"
+  }
+}
+</code></pre>
+
+                <h3>Map State for Batch Processing</h3>
+
+                <pre><code >{
+  "ProcessOrderItems": {
+    "Type": "Map",
+    "ItemsPath": "$.items",
+    "MaxConcurrency": 5,
+    "Iterator": {
+      "StartAt": "ProcessSingleItem",
+      "States": {
+        "ProcessSingleItem": {
+          "Type": "Task",
+          "Resource": "arn:aws:states:::lambda:invoke",
+          "Parameters": {
+            "FunctionName": "process-order-item-function",
+            "Payload": {
+              "item.$": "$",
+              "orderId.$": "$$.Execution.Input.orderId"
+            }
+          },
+          "End": true
+        }
+      }
+    },
+    "ResultPath": "$.processedItems",
+    "Next": "ConsolidateResults"
+  }
+}
+</code></pre>
+
+                <h2>Deployment with SAM</h2>
+
+                <pre><code >AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: 'E-commerce Order Processing Workflow'
+
+Resources:
+  # Step Function State Machine
+  OrderProcessingStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: OrderProcessingWorkflow
+      DefinitionString: !Sub |
+        {
+          "Comment": "E-commerce Order Processing Workflow",
+          "StartAt": "ValidateOrder",
+          "States": {
+            # ... (include the full state machine definition)
+          }
+        }
+      RoleArn: !GetAtt StepFunctionRole.Arn
+
+  # IAM Role for Step Function
+  StepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambdaRole
+      Policies:
+        - PolicyName: StepFunctionExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - sns:Publish
+                  - sqs:SendMessage
+                Resource: '*'
+
+  # Lambda Functions
+  ValidateOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/validate-order/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Environment:
+        Variables:
+          CUSTOMERS_TABLE: !Ref CustomersTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CustomersTable
+
+  CheckInventoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/check-inventory/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Environment:
+        Variables:
+          INVENTORY_TABLE: !Ref InventoryTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InventoryTable
+
+  # DynamoDB Tables
+  CustomersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Customers
+      AttributeDefinitions:
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: customerId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  InventoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Inventory
+      AttributeDefinitions:
+        - AttributeName: productId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: productId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+Outputs:
+  StateMachineArn:
+    Description: "ARN of the Step Function State Machine"
+    Value: !Ref OrderProcessingStateMachine
+</code></pre>
+
+                <h2>Monitoring and Observability</h2>
+
+                <div class="highlight">
+                    <h3>Key Metrics to Monitor:</h3>
+                    <ul>
+                        <li><strong>Execution Success Rate:</strong> Percentage of successful workflow executions</li>
+                        <li><strong>Execution Duration:</strong> Time taken for complete workflow execution</li>
+                        <li><strong>State Transition Metrics:</strong> Performance of individual states</li>
+                        <li><strong>Error Rates:</strong> Frequency and types of failures</li>
+                        <li><strong>Cost per Execution:</strong> Monitor usage-based billing</li>
+                    </ul>
+                </div>
+
+                <h3>CloudWatch Dashboard</h3>
+
+                <pre><code >import boto3
+
+def create_monitoring_dashboard():
+    cloudwatch = boto3.client('cloudwatch')
+    
+    dashboard_body = {
+        "widgets": [
+            {
+                "type": "metric",
+                "properties": {
+                    "metrics": [
+                        ["AWS/States", "ExecutionsFailed", "StateMachineArn", "arn:aws:states:region:account:stateMachine:OrderProcessingWorkflow"],
+                        [".", "ExecutionsSucceeded", ".", "."],
+                        [".", "ExecutionsStarted", ".", "."]
+                    ],
+                    "period": 300,
+                    "stat": "Sum",
+                    "region": "us-east-1",
+                    "title": "Step Function Executions"
+                }
+            },
+            {
+                "type": "metric",
+                "properties": {
+                    "metrics": [
+                        ["AWS/States", "ExecutionTime", "StateMachineArn", "arn:aws:states:region:account:stateMachine:OrderProcessingWorkflow"]
+                    ],
+                    "period": 300,
+                    "stat": "Average",
+                    "region": "us-east-1",
+                    "title": "Average Execution Time"
+                }
+            }
+        ]
+    }
+    
+    cloudwatch.put_dashboard(
+        DashboardName='OrderProcessingWorkflow',
+        DashboardBody=json.dumps(dashboard_body)
+    )
+</code></pre>
+
+                <h2>Best Practices and Optimization</h2>
+
+                <h3>Error Handling Strategy</h3>
+
+                <ul>
+                    <li><strong>Retry with Exponential Backoff:</strong> Handle transient failures gracefully</li>
+                    <li><strong>Circuit Breaker Pattern:</strong> Prevent cascading failures</li>
+                    <li><strong>Dead Letter Queues:</strong> Capture failed executions for analysis</li>
+                    <li><strong>Compensation Actions:</strong> Implement rollback mechanisms</li>
+                </ul>
+
+                <h3>Performance Optimization</h3>
+
+                <ul>
+                    <li><strong>Parallel Execution:</strong> Use parallel states for independent operations</li>
+                    <li><strong>Express Workflows:</strong> Use for high-volume, short-duration workflows</li>
+                    <li><strong>State Machine Nesting:</strong> Break complex workflows into smaller, reusable components</li>
+                    <li><strong>Efficient Data Passing:</strong> Minimize payload size between states</li>
+                </ul>
+
+                <h3>Cost Management</h3>
+
+                <pre><code >{
+  "OptimizeForCost": {
+    "Type": "Choice",
+    "Choices": [
+      {
+        "Variable": "$.orderValue",
+        "NumericGreaterThan": 100,
+        "Next": "PremiumProcessing"
+      },
+      {
+        "Variable": "$.orderValue",
+        "NumericLessThanEquals": 100,
+        "Next": "StandardProcessing"
+      }
+    ]
+  }
+}
+</code></pre>
+
+                <h2>Testing and Validation</h2>
+
+                <h3>Local Testing with Step Functions Local</h3>
+
+                <pre><code ># Install Step Functions Local
+docker pull amazon/aws-stepfunctions-local
+
+# Run local Step Functions
+docker run -p 8083:8083 amazon/aws-stepfunctions-local
+
+# Test state machine definition
+aws stepfunctions --endpoint-url http://localhost:8083 \
+    create-state-machine \
+    --definition file://order-processing-workflow.json \
+    --name "OrderProcessingWorkflowLocal" \
+    --role-arn "arn:aws:iam::123456789012:role/DummyRole"
+</code></pre>
+
+                <h2>Conclusion</h2>
+
+                <p>AWS Step Functions provides a powerful platform for orchestrating complex serverless workflows. By implementing proper error handling, monitoring, and optimization strategies, you can build resilient, scalable business processes that automatically handle failures and scale with demand.</p>
+
+                <p>The patterns demonstrated in this e-commerce order processing example can be adapted to various use cases including data processing pipelines, approval workflows, batch processing jobs, and microservices orchestration.</p>
+
+                <div class="highlight">
+                    <p><strong>Next Steps:</strong> Experiment with different state types, implement your own workflow patterns, and explore integrations with other AWS services like SageMaker for ML workflows or MediaConvert for media processing pipelines.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer (Copied from Landing Page) -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h3>Samir Adhikari</h3>
+                    <p>A blog dedicated to sharing AWS insights, DevOps practices, and cloud solution strategies.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="/">Home</a></li>
+                        <li><a href="/blog.html">Blog</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Categories</h4>
+                    <ul>
+                        <li><a href="#">AWS</a></li>
+                        <li><a href="#">DevOps</a></li>
+                        <li><a href="#">Cloud Solutions</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Contact</h4>
+                    <ul>
+                        <li><a href="mailto:samir.adhh@email.com">samir.adhhh@gmail.com</a></li>
+                        <li><a href="#">9861762422</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-divider"></div>
+            <div class="footer-bottom">
+                <div class="copyright">© 2025 Samir Adhikari. All rights reserved.</div>
+                <div class="footer-social">
+                    <a href="#"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-instagram"></i></a>
+                    <a href="#"><i class="fab fa-linkedin-in"></i></a>                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Back to top button -->
+    <a href="#" class="back-to-top" id="backToTopBtn">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- Theme Toggle ---
+            const checkbox = document.getElementById('checkbox');
+            const themeOverlay = document.getElementById('themeOverlay');
+
+            function showThemeTransition() {
+                if (themeOverlay) {
+                    themeOverlay.style.display = 'block';
+                    themeOverlay.style.opacity = '1';
+                    setTimeout(() => {
+                        themeOverlay.style.opacity = '0';
+                        setTimeout(() => {
+                            themeOverlay.style.display = 'none';
+                        }, 500);
+                    }, 500);
+                }
+            }
+
+            function setTheme(theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+            }
+
+            if (checkbox) {
+                checkbox.addEventListener('change', () => {
+                    const theme = checkbox.checked ? 'dark' : 'light';
+                    showThemeTransition();
+                    setTheme(theme);
+                });
+            }
+
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme) {
+                setTheme(storedTheme);
+                if (checkbox) checkbox.checked = storedTheme === 'dark';
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                setTheme('dark');
+                if (checkbox) checkbox.checked = true;
+            }
+
+             // --- Back to Top Button ---
+             const backToTopBtn = document.getElementById('backToTopBtn');
+            if (backToTopBtn) {
+                window.addEventListener('scroll', () => {
+                    backToTopBtn.classList.toggle('visible', window.pageYOffset > 300);
+                });
+
+                backToTopBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            }
+
+            // --- Mobile Menu ---
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+
+            if (mobileMenuBtn && mobileMenu) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    mobileMenu.classList.toggle('active');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

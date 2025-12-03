@@ -1,0 +1,2209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://img.icons8.com/ios-filled/50/000000/infinity.png" type="image/png">
+    <title>Building Event-Driven Architectures with EventBridge, SQS, and Lambda - Samir Adhikari</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NQYZ1YTN96"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-NQYZ1YTN96');
+</script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+        /* Light Theme Variables (Copied from Landing Page) */
+        :root {
+            --bg-primary: #f8f8f8;
+            --bg-secondary: #ffffff;
+            --bg-accent: #f0f0f0;
+            --text-primary: #222222;
+            --text-secondary: #555555;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.2);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.2);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.2);
+            --card-border: 1px solid #e0e0e0;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.3), 0 0 20px rgba(110, 86, 207, 0.1);
+            --header-bg: rgba(255, 255, 255, 0.9);
+            --switch-bg: #e0e0e0;
+            --switch-thumb: #ffffff;
+            --switch-icon-color: #6e56cf;
+            --footer-divider: #e0e0e0;
+            --scrollbar-track: #f0f0f0;
+            --scrollbar-thumb: #cccccc;
+        }
+
+        /* Dark Theme Variables (Copied from Landing Page) */
+        :root[data-theme="dark"] {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #161616;
+            --bg-accent: #1e1e1e;
+            --text-primary: #f8f8f8;
+            --text-secondary: #bebebe;
+            --accent-color: #6e56cf;
+            --accent-hover: #8a6eff;
+            --accent-muted: rgba(110, 86, 207, 0.3);
+            --gradient-1: linear-gradient(135deg, #6e56cf 0%, #b86eff 100%);
+            --gradient-2: linear-gradient(135deg, #1e1e1e 0%, #3b3b3b 100%);
+            --shadow-sm: 0 5px 15px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
+            --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+            --card-border: 1px solid #2a2a2a;
+            --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+            --header-bg: rgba(15, 15, 15, 0.9);
+            --switch-bg: #333333;
+            --switch-thumb: #6e56cf;
+            --switch-icon-color: #ffffff;
+            --footer-divider: #2a2a2a;
+            --scrollbar-track: #161616;
+            --scrollbar-thumb: #333333;
+        }
+
+        /* General Styles (Copied from Landing Page with minor adjustments) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        h1, h2, h3, h4, h5 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header (Copied from Landing Page) */
+        header {
+            background-color: var(--header-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 0 20px;
+            border-bottom: var(--card-border);
+            transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+        }
+
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            transition: color 0.5s ease;
+        }
+
+        .logo::before {
+            content: "";
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 10px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: var(--shadow-glow);
+            transition: background-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+        }
+
+        .nav-links li {
+            margin-left: 40px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 16px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: "";
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--accent-color);
+            transition: width 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-color);
+            text-shadow: var(--neon-glow);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Mobile Menu */
+        .mobile-menu-btn {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 30px;
+            height: 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 20px;
+        }
+
+        .mobile-menu-btn span {
+            height: 2px;
+            width: 100%;
+            background-color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .mobile-menu {
+            position: fixed;
+            top: 80px;
+            left: 0;
+            width: 100%;
+            height: 0;
+            background-color: var(--bg-secondary);
+            overflow: hidden;
+            transition: height 0.3s ease;
+            z-index: 99;
+            opacity: 0;
+            box-shadow: var(--shadow-md);
+        }
+
+        .mobile-menu.active {
+            height: auto;
+            opacity: 1;
+        }
+
+        .mobile-menu ul {
+            list-style: none;
+            padding: 20px;
+        }
+
+        .mobile-menu li {
+            margin: 15px 0;
+        }
+
+        .mobile-menu a {
+            font-size: 18px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.3s;
+            display: block;
+            padding: 10px 0;
+        }
+
+        .mobile-menu a:hover {
+            color: var(--accent-color);
+        }
+
+        /* Blog Post Styles */
+        .blog-post {
+            padding: 80px 0;
+        }
+
+
+
+        .blog-post-title {
+            font-size: 42px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-meta {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 40px;
+            gap: 20px;
+            flex-wrap: wrap;
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-meta span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .blog-post-meta i {
+            color: var(--accent-color);
+        }
+
+        .blog-post-content {
+            max-width: 800px;
+            margin: 0 auto;
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .blog-post-content h2 {
+            font-size: 32px;
+            margin: 40px 0 20px;
+        }
+
+        .blog-post-content h3 {
+            font-size: 26px;
+            margin: 30px 0 15px;
+        }
+
+        .blog-post-content p {
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content ul,
+        .blog-post-content ol {
+            padding-left: 30px;
+            margin-bottom: 25px;
+        }
+
+        .blog-post-content li {
+            margin-bottom: 10px;
+        }
+
+        .blog-post-content a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .blog-post-content a:hover {
+            color: var(--accent-hover);
+        }
+
+        .blog-post-content blockquote {
+            border-left: 5px solid var(--accent-color);
+            padding: 15px 20px;
+            margin: 30px 0;
+            background-color: var(--bg-accent);
+            border-radius: 5px;
+            font-style: italic;
+            color: var(--text-secondary);
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* Code Styling */
+        .blog-post-content pre {
+            background-color: var(--bg-accent);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            margin: 30px 0;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-size: 15px;
+            line-height: 1.6;
+            white-space: pre;
+            box-shadow: var(--shadow-sm);
+            transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .blog-post-content pre code {
+            font-family: inherit;
+            color: var(--text-primary);
+            background: none;
+            padding: 0;
+            font-size: inherit;
+            white-space: pre;
+        }
+
+        /* Inline code styling */
+        .blog-post-content p > code,
+        .blog-post-content li > code,
+        .blog-post-content h3 > code {
+            background-color: var(--accent-muted);
+            color: var(--accent-color);
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+        }
+
+        .architecture-diagram {
+            background-color: var(--bg-secondary);
+            border: var(--card-border);
+            border-radius: 8px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+            transition: background-color 0.5s ease;
+        }
+
+        .highlight {
+            background: linear-gradient(120deg, var(--accent-muted) 0%, var(--accent-muted) 100%);
+            padding: 25px;
+            border-left: 4px solid var(--accent-color);
+            margin: 30px 0;
+            border-radius: 0 8px 8px 0;
+            transition: background 0.5s ease;
+        }
+
+        /* Footer (Copied from Landing Page) */
+        footer {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 80px 0 40px;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 50px;
+        }
+
+        .footer-logo {
+            flex: 0 0 30%;
+        }
+
+        .footer-logo h3 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-logo p {
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            font-size: 15px;
+            transition: color 0.5s ease;
+        }
+
+        .footer-links {
+            flex: 0 0 20%;
+        }
+
+        .footer-links h4 {
+            font-size: 20px;
+            margin-bottom: 25px;
+            position: relative;
+            padding-bottom: 12px;
+            color: var(--text-primary);
+            transition: color 0.5s ease;
+        }
+
+        .footer-links h4::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--accent-color);
+        }
+
+        .footer-links ul {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 12px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-color);
+        }
+
+        .footer-divider {
+            height: 1px;
+            background-color: var(--footer-divider);
+            margin: 20px 0;
+            transition: background-color 0.5s ease;
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .copyright {
+            color: var(--text-secondary);
+            font-size: 14px;
+            transition: color 0.5s ease;
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 15px;
+        }
+
+        .footer-social a {
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-accent);
+            border-radius: 50%;
+            border: var(--card-border);
+            color: var(--text-secondary);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .footer-social a:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--accent-color);
+            border-radius: 50%;
+            transform: scale(0);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: -1;
+        }
+
+        .footer-social a:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
+            border-color: var(--accent-color);
+        }
+
+        .footer-social a:hover:before {
+            transform: scale(1);
+        }
+
+        .footer-social a i {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Back to top button */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s, opacity 0.5s, transform 0.5s;
+            z-index: 99;
+            opacity: 0;
+            transform: translateY(20px);
+            text-decoration: none;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .back-to-top:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Theme transition overlay */
+        .theme-transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-primary);
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+            border-radius: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 6px;
+            border: 3px solid var(--scrollbar-track);
+            transition: background-color 0.5s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+
+        /* Prefers color scheme media query */
+        @media (prefers-color-scheme: dark) {
+            body:not([data-theme-forced="light"]) {
+                --bg-primary: #0f0f0f;
+                --bg-secondary: #161616;
+                --bg-accent: #1e1e1e;
+                --text-primary: #f8f8f8;
+                --text-secondary: #bebebe;
+                --shadow-glow: 0 0 15px rgba(110, 86, 207, 0.4);
+                --card-border: 1px solid #2a2a2a;
+                --neon-glow: 0 0 10px rgba(110, 86, 207, 0.5), 0 0 20px rgba(110, 86, 207, 0.3);
+                --header-bg: rgba(15, 15, 15, 0.9);
+                --switch-bg: #333333;
+                --switch-thumb: #6e56cf;
+                --switch-icon-color: #ffffff;
+                --footer-divider: #2a2a2a;
+                --scrollbar-track: #161616;
+                --scrollbar-thumb: #333333;
+            }
+        }
+
+        /* Responsive Design (Adapted from Landing Page) */
+        @media (max-width: 992px) {
+            .footer-content {
+                flex-wrap: wrap;
+                gap: 40px;
+            }
+
+            .footer-logo {
+                flex: 0 0 100%;
+                margin-bottom: 20px;
+            }
+
+            .footer-links {
+                flex: 0 0 calc(50% - 20px);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .mobile-menu-btn {
+                display: flex;
+            }
+            
+            .mobile-menu {
+                border-top: 1px solid var(--card-border);
+            }
+            
+            .blog-post-title {
+                font-size: 36px;
+            }
+
+            .blog-post-content {
+                font-size: 16px;
+            }
+
+            .blog-post-content h2 {
+                font-size: 28px;
+            }
+
+            .blog-post-content h3 {
+                font-size: 22px;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light">
+
+    <!-- Theme transition overlay -->
+    <div class="theme-transition-overlay" id="themeOverlay"></div>
+
+    <!-- Header (Copied from Landing Page) -->
+    <header>
+        <div class="container">
+            <nav>
+                <a href="/" class="logo">Samir Adhikari</a>
+                <ul class="nav-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/blog.html">Blog</a></li>
+                </ul>
+                <!-- Mobile Menu Button -->
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+     <!-- Mobile Menu -->
+     <div class="mobile-menu" id="mobileMenu">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/blog.html">Blog</a></li>
+        </ul>
+    </div>
+
+    <!-- Blog Post Section -->
+    <section class="blog-post">
+        <div class="container">
+            <h1 class="blog-post-title">Building Event-Driven Architectures with EventBridge, SQS, and Lambda</h1>
+            <div class="blog-post-meta">
+                <span><i class="far fa-calendar-alt"></i> November 16, 2025</span>
+                <span><i class="far fa-user"></i> Samir Adhikari</span>
+                <span><i class="far fa-clock"></i> 22 min read</span>
+            </div>
+
+            <div class="blog-post-content">
+                <p>Event-driven architectures represent a fundamental shift in how we design and build scalable, decoupled systems. This comprehensive guide explores how to leverage AWS EventBridge, SQS, and Lambda to create robust, production-ready event-driven applications that can handle complex workflows and scale seamlessly.</p>
+
+                <h2>Understanding Event-Driven Architecture</h2>
+
+                <p>Event-driven architecture (EDA) is a design pattern where components communicate through events rather than direct method calls. In AWS, this pattern enables:</p>
+
+                <ul>
+                    <li><strong>Loose Coupling:</strong> Services don't need to know about each other's implementation</li>
+                    <li><strong>Scalability:</strong> Components can scale independently based on event volume</li>
+                    <li><strong>Resilience:</strong> Failures in one component don't cascade to others</li>
+                    <li><strong>Flexibility:</strong> Easy to add new consumers without modifying producers</li>
+                    <li><strong>Real-time Processing:</strong> Events are processed as they occur</li>
+                </ul>
+
+                <div class="architecture-diagram">
+                    <h3>Event-Driven Architecture Flow</h3>
+                    <p>📱 User Action → 🚀 API Gateway → 📋 Lambda Producer → 📡 EventBridge → 📊 Multiple Consumers</p>
+                    <p>                                                    ↓</p>
+                    <p>                                              🔄 SQS Queues → ⚡ Lambda Processors</p>
+                    <p>                                                    ↓</p>
+                    <p>                                              💾 DynamoDB / 📧 SNS / 🔔 External APIs</p>
+                </div>
+
+                <h2>Real-World Use Case: E-commerce Order Processing</h2>
+
+                <p>Let's build a comprehensive e-commerce order processing system that demonstrates advanced event-driven patterns:</p>
+
+                <h3>System Events Overview</h3>
+                <ul>
+                    <li><strong>Order Events:</strong> created, updated, cancelled, completed</li>
+                    <li><strong>Payment Events:</strong> processed, failed, refunded</li>
+                    <li><strong>Inventory Events:</strong> reserved, released, updated</li>
+                    <li><strong>Shipping Events:</strong> prepared, dispatched, delivered</li>
+                    <li><strong>Notification Events:</strong> email, SMS, push notifications</li>
+                </ul>
+
+                <h2>EventBridge Implementation</h2>
+
+                <h3>Custom Event Bus and Schema Registry</h3>
+
+                <pre><code >AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: 'Event-Driven E-commerce System'
+
+Resources:
+  # Custom Event Bus for E-commerce Events
+  EcommerceEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: ecommerce-events
+      Description: Event bus for e-commerce order processing
+
+  # Schema Registry for Event Validation
+  EcommerceSchemaRegistry:
+    Type: AWS::EventSchemas::Registry
+    Properties:
+      RegistryName: EcommerceSchemas
+      Description: Schema registry for e-commerce events
+
+  # Order Event Schema
+  OrderEventSchema:
+    Type: AWS::EventSchemas::Schema
+    Properties:
+      RegistryName: !Ref EcommerceSchemaRegistry
+      SchemaName: OrderEvent
+      Type: JSONSchemaDraft4
+      Description: Schema for order-related events
+      Content: |
+        {
+          "$schema": "http://json-schema.org/draft-04/schema#",
+          "title": "Order Event",
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "enum": ["1.0"]
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "source": {
+              "type": "string",
+              "enum": ["ecommerce.orders", "ecommerce.payments", "ecommerce.inventory"]
+            },
+            "detail-type": {
+              "type": "string",
+              "enum": ["Order Created", "Order Updated", "Payment Processed", "Inventory Reserved"]
+            },
+            "detail": {
+              "type": "object",
+              "properties": {
+                "orderId": {
+                  "type": "string"
+                },
+                "customerId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "productId": {"type": "string"},
+                      "quantity": {"type": "integer", "minimum": 1},
+                      "price": {"type": "number", "minimum": 0}
+                    },
+                    "required": ["productId", "quantity", "price"]
+                  }
+                }
+              },
+              "required": ["orderId", "customerId"]
+            }
+          },
+          "required": ["version", "id", "source", "detail-type", "detail"]
+        }
+
+  # Event Rules for Different Processing Paths
+  OrderCreatedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: !Ref EcommerceEventBus
+      EventPattern:
+        source:
+          - "ecommerce.orders"
+        detail-type:
+          - "Order Created"
+      Targets:
+        - Arn: !GetAtt OrderProcessingQueue.Arn
+          Id: "OrderProcessingTarget"
+          SqsParameters:
+            MessageGroupId: "order-processing"
+        - Arn: !GetAtt InventoryQueue.Arn
+          Id: "InventoryTarget"
+        - Arn: !GetAtt NotificationQueue.Arn
+          Id: "NotificationTarget"
+
+  PaymentProcessedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: !Ref EcommerceEventBus
+      EventPattern:
+        source:
+          - "ecommerce.payments"
+        detail-type:
+          - "Payment Processed"
+        detail:
+          status:
+            - "success"
+      Targets:
+        - Arn: !GetAtt FulfillmentQueue.Arn
+          Id: "FulfillmentTarget"
+        - Arn: !GetAtt NotificationQueue.Arn
+          Id: "PaymentNotificationTarget"
+</code></pre>
+
+                <h3>Event Publisher Implementation</h3>
+
+                <pre><code >import json
+import boto3
+import uuid
+from datetime import datetime
+from typing import Dict, Any, List
+from dataclasses import dataclass, asdict
+from enum import Enum
+
+class EventSource(Enum):
+    ORDERS = "ecommerce.orders"
+    PAYMENTS = "ecommerce.payments"
+    INVENTORY = "ecommerce.inventory"
+    SHIPPING = "ecommerce.shipping"
+    NOTIFICATIONS = "ecommerce.notifications"
+
+@dataclass
+class OrderItem:
+    product_id: str
+    quantity: int
+    price: float
+    name: str
+
+@dataclass
+class OrderEventDetail:
+    order_id: str
+    customer_id: str
+    amount: float
+    currency: str = "USD"
+    status: str = "created"
+    items: List[OrderItem] = None
+    timestamp: str = None
+    
+    def __post_init__(self):
+        if self.timestamp is None:
+            self.timestamp = datetime.utcnow().isoformat()
+        if self.items is None:
+            self.items = []
+
+class EventPublisher:
+    def __init__(self, event_bus_name: str = "ecommerce-events"):
+        self.event_bus_name = event_bus_name
+        self.eventbridge = boto3.client('events')
+    
+    def publish_event(self, source: EventSource, detail_type: str, 
+                     detail: Dict[str, Any], event_id: str = None) -> bool:
+        """Publish event to EventBridge"""
+        
+        if event_id is None:
+            event_id = str(uuid.uuid4())
+        
+        event_entry = {
+            'Source': source.value,
+            'DetailType': detail_type,
+            'Detail': json.dumps(detail, default=self._json_serializer),
+            'EventBusName': self.event_bus_name,
+            'Time': datetime.utcnow(),
+            'Resources': [],
+        }
+        
+        try:
+            response = self.eventbridge.put_events(Entries=[event_entry])
+            
+            if response['FailedEntryCount'] > 0:
+                print(f"Failed to publish event: {response['Entries'][0]}")
+                return False
+            
+            print(f"Successfully published event {event_id} to {source.value}")
+            return True
+            
+        except Exception as e:
+            print(f"Error publishing event: {str(e)}")
+            return False
+    
+    def publish_order_created(self, order_detail: OrderEventDetail) -> bool:
+        """Publish order created event"""
+        return self.publish_event(
+            source=EventSource.ORDERS,
+            detail_type="Order Created",
+            detail=asdict(order_detail)
+        )
+    
+    def publish_payment_processed(self, order_id: str, payment_id: str, 
+                                 amount: float, status: str) -> bool:
+        """Publish payment processed event"""
+        payment_detail = {
+            "order_id": order_id,
+            "payment_id": payment_id,
+            "amount": amount,
+            "status": status,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return self.publish_event(
+            source=EventSource.PAYMENTS,
+            detail_type="Payment Processed",
+            detail=payment_detail
+        )
+    
+    def publish_inventory_updated(self, product_id: str, quantity: int, 
+                                action: str, order_id: str = None) -> bool:
+        """Publish inventory updated event"""
+        inventory_detail = {
+            "product_id": product_id,
+            "quantity": quantity,
+            "action": action,  # reserved, released, updated
+            "order_id": order_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return self.publish_event(
+            source=EventSource.INVENTORY,
+            detail_type="Inventory Updated",
+            detail=inventory_detail
+        )
+    
+    def _json_serializer(self, obj):
+        """Custom JSON serializer for complex objects"""
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return str(obj)
+
+# Usage in Lambda function
+publisher = EventPublisher()
+
+def create_order_handler(event, context):
+    """Lambda function to handle order creation"""
+    
+    try:
+        # Parse incoming request
+        order_data = json.loads(event['body'])
+        
+        # Create order in database
+        order_id = str(uuid.uuid4())
+        
+        # Prepare order detail
+        items = [
+            OrderItem(
+                product_id=item['productId'],
+                quantity=item['quantity'],
+                price=item['price'],
+                name=item['name']
+            )
+            for item in order_data['items']
+        ]
+        
+        order_detail = OrderEventDetail(
+            order_id=order_id,
+            customer_id=order_data['customerId'],
+            amount=order_data['totalAmount'],
+            items=items,
+            status="created"
+        )
+        
+        # Publish order created event
+        success = publisher.publish_order_created(order_detail)
+        
+        if success:
+            return {
+                'statusCode': 201,
+                'body': json.dumps({
+                    'orderId': order_id,
+                    'status': 'created',
+                    'message': 'Order created successfully'
+                })
+            }
+        else:
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'error': 'Failed to publish order event'})
+            }
+            
+    except Exception as e:
+        print(f"Error creating order: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'Internal server error'})
+        }
+</code></pre>
+
+                <h2>Advanced SQS Patterns and Processing</h2>
+
+                <h3>Multi-Queue Processing Strategy</h3>
+
+                <pre><code >  # Order Processing Queue (FIFO for order consistency)
+  OrderProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: order-processing.fifo
+      FifoQueue: true
+      ContentBasedDeduplication: true
+      MessageRetentionPeriod: 1209600  # 14 days
+      VisibilityTimeoutSeconds: 300
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt OrderProcessingDLQ.Arn
+        maxReceiveCount: 3
+
+  OrderProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: order-processing-dlq.fifo
+      FifoQueue: true
+      MessageRetentionPeriod: 1209600
+
+  # Inventory Queue (Standard for parallel processing)
+  InventoryQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: inventory-updates
+      VisibilityTimeoutSeconds: 180
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt InventoryDLQ.Arn
+        maxReceiveCount: 5
+
+  InventoryDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: inventory-updates-dlq
+      MessageRetentionPeriod: 1209600
+
+  # High-volume Notification Queue
+  NotificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: notifications
+      VisibilityTimeoutSeconds: 60
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt NotificationDLQ.Arn
+        maxReceiveCount: 3
+
+  NotificationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: notifications-dlq
+
+  # Batch processing for analytics
+  AnalyticsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: analytics-events
+      VisibilityTimeoutSeconds: 900  # 15 minutes for batch processing
+      ReceiveMessageWaitTimeSeconds: 20
+</code></pre>
+
+                <h3>Intelligent Queue Processing</h3>
+
+                <pre><code >import json
+import boto3
+from typing import List, Dict, Any
+import time
+from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+@dataclass
+class ProcessingResult:
+    success: bool
+    message_id: str
+    error: str = None
+    processing_time: float = 0
+
+class SQSProcessor:
+    def __init__(self, queue_url: str, max_workers: int = 10):
+        self.queue_url = queue_url
+        self.max_workers = max_workers
+        self.sqs = boto3.client('sqs')
+        self.dynamodb = boto3.resource('dynamodb')
+    
+    def process_messages_batch(self, max_messages: int = 10) -> List[ProcessingResult]:
+        """Process multiple messages with parallel execution"""
+        
+        # Receive messages from queue
+        response = self.sqs.receive_message(
+            QueueUrl=self.queue_url,
+            MaxNumberOfMessages=max_messages,
+            WaitTimeSeconds=20,
+            MessageAttributeNames=['All']
+        )
+        
+        messages = response.get('Messages', [])
+        if not messages:
+            return []
+        
+        print(f"Processing {len(messages)} messages from queue")
+        
+        # Process messages in parallel
+        results = []
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            future_to_message = {
+                executor.submit(self.process_single_message, msg): msg 
+                for msg in messages
+            }
+            
+            for future in as_completed(future_to_message):
+                message = future_to_message[future]
+                try:
+                    result = future.result(timeout=60)
+                    results.append(result)
+                    
+                    # Delete successfully processed messages
+                    if result.success:
+                        self.sqs.delete_message(
+                            QueueUrl=self.queue_url,
+                            ReceiptHandle=message['ReceiptHandle']
+                        )
+                    
+                except Exception as e:
+                    print(f"Error processing message {message.get('MessageId', 'unknown')}: {str(e)}")
+                    results.append(ProcessingResult(
+                        success=False,
+                        message_id=message.get('MessageId', 'unknown'),
+                        error=str(e)
+                    ))
+        
+        return results
+    
+    def process_single_message(self, message: Dict[str, Any]) -> ProcessingResult:
+        """Process individual message"""
+        start_time = time.time()
+        message_id = message.get('MessageId', 'unknown')
+        
+        try:
+            # Parse message body
+            body = json.loads(message['Body'])
+            
+            # Handle EventBridge messages
+            if 'Source' in body:
+                return self.process_eventbridge_message(body, message_id)
+            else:
+                return self.process_direct_message(body, message_id)
+                
+        except json.JSONDecodeError as e:
+            return ProcessingResult(
+                success=False,
+                message_id=message_id,
+                error=f"Invalid JSON: {str(e)}",
+                processing_time=time.time() - start_time
+            )
+        except Exception as e:
+            return ProcessingResult(
+                success=False,
+                message_id=message_id,
+                error=str(e),
+                processing_time=time.time() - start_time
+            )
+    
+    def process_eventbridge_message(self, event: Dict[str, Any], 
+                                  message_id: str) -> ProcessingResult:
+        """Process EventBridge event message"""
+        start_time = time.time()
+        
+        source = event.get('Source')
+        detail_type = event.get('DetailType')
+        detail = json.loads(event.get('Detail', '{}'))
+        
+        try:
+            if source == 'ecommerce.orders' and detail_type == 'Order Created':
+                self.process_order_created(detail)
+            elif source == 'ecommerce.payments' and detail_type == 'Payment Processed':
+                self.process_payment_processed(detail)
+            elif source == 'ecommerce.inventory' and detail_type == 'Inventory Updated':
+                self.process_inventory_updated(detail)
+            else:
+                print(f"Unhandled event: {source} - {detail_type}")
+                return ProcessingResult(
+                    success=False,
+                    message_id=message_id,
+                    error=f"Unhandled event type: {source} - {detail_type}",
+                    processing_time=time.time() - start_time
+                )
+            
+            return ProcessingResult(
+                success=True,
+                message_id=message_id,
+                processing_time=time.time() - start_time
+            )
+            
+        except Exception as e:
+            return ProcessingResult(
+                success=False,
+                message_id=message_id,
+                error=str(e),
+                processing_time=time.time() - start_time
+            )
+    
+    def process_order_created(self, detail: Dict[str, Any]):
+        """Handle order created event"""
+        order_id = detail['order_id']
+        customer_id = detail['customer_id']
+        
+        # Update order status in database
+        orders_table = self.dynamodb.Table('Orders')
+        orders_table.update_item(
+            Key={'orderId': order_id},
+            UpdateExpression='SET #status = :status, #updatedAt = :timestamp',
+            ExpressionAttributeNames={
+                '#status': 'status',
+                '#updatedAt': 'updatedAt'
+            },
+            ExpressionAttributeValues={
+                ':status': 'processing',
+                ':timestamp': int(time.time())
+            }
+        )
+        
+        # Log event for analytics
+        self.log_analytics_event('order_created', detail)
+        
+        print(f"Processed order created: {order_id}")
+    
+    def process_payment_processed(self, detail: Dict[str, Any]):
+        """Handle payment processed event"""
+        order_id = detail['order_id']
+        payment_status = detail['status']
+        
+        # Update order payment status
+        orders_table = self.dynamodb.Table('Orders')
+        orders_table.update_item(
+            Key={'orderId': order_id},
+            UpdateExpression='SET paymentStatus = :status, #updatedAt = :timestamp',
+            ExpressionAttributeNames={'#updatedAt': 'updatedAt'},
+            ExpressionAttributeValues={
+                ':status': payment_status,
+                ':timestamp': int(time.time())
+            }
+        )
+        
+        self.log_analytics_event('payment_processed', detail)
+        
+        print(f"Processed payment for order: {order_id}, status: {payment_status}")
+    
+    def process_inventory_updated(self, detail: Dict[str, Any]):
+        """Handle inventory updated event"""
+        product_id = detail['product_id']
+        quantity = detail['quantity']
+        action = detail['action']
+        
+        # Update inventory in database
+        inventory_table = self.dynamodb.Table('Inventory')
+        
+        if action == 'reserved':
+            inventory_table.update_item(
+                Key={'productId': product_id},
+                UpdateExpression='SET reservedQuantity = reservedQuantity + :qty',
+                ExpressionAttributeValues={':qty': quantity}
+            )
+        elif action == 'released':
+            inventory_table.update_item(
+                Key={'productId': product_id},
+                UpdateExpression='SET reservedQuantity = reservedQuantity - :qty',
+                ExpressionAttributeValues={':qty': quantity}
+            )
+        
+        self.log_analytics_event('inventory_updated', detail)
+        
+        print(f"Updated inventory for product {product_id}: {action} {quantity}")
+    
+    def log_analytics_event(self, event_type: str, detail: Dict[str, Any]):
+        """Log event for analytics processing"""
+        analytics_table = self.dynamodb.Table('EventAnalytics')
+        
+        analytics_table.put_item(
+            Item={
+                'eventId': f"{event_type}#{int(time.time())}#{detail.get('order_id', 'unknown')}",
+                'eventType': event_type,
+                'timestamp': int(time.time()),
+                'detail': detail,
+                'ttl': int(time.time()) + (90 * 24 * 60 * 60)  # 90 days TTL
+            }
+        )
+
+# Lambda function for queue processing
+def lambda_handler(event, context):
+    """Lambda function to process SQS messages"""
+    
+    # Determine queue URL from environment or event
+    queue_url = os.environ.get('QUEUE_URL')
+    
+    if not queue_url:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error': 'Queue URL not configured'})
+        }
+    
+    processor = SQSProcessor(queue_url, max_workers=5)
+    
+    try:
+        # Process messages
+        results = processor.process_messages_batch(max_messages=10)
+        
+        successful = len([r for r in results if r.success])
+        failed = len([r for r in results if not r.success])
+        
+        print(f"Processing completed: {successful} successful, {failed} failed")
+        
+        # Log failed processing for investigation
+        for result in results:
+            if not result.success:
+                print(f"Failed to process message {result.message_id}: {result.error}")
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'processed': len(results),
+                'successful': successful,
+                'failed': failed
+            })
+        }
+        
+    except Exception as e:
+        print(f"Error in message processing: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'Processing failed'})
+        }
+</code></pre>
+
+                <h2>Advanced Lambda Event Patterns</h2>
+
+                <h3>Event Filtering and Routing</h3>
+
+                <pre><code >import json
+import boto3
+import re
+from typing import Dict, Any, List, Optional
+from enum import Enum
+
+class EventPriority(Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+class EventRouter:
+    def __init__(self):
+        self.eventbridge = boto3.client('events')
+        self.sqs = boto3.client('sqs')
+        self.sns = boto3.client('sns')
+    
+    def route_event(self, event: Dict[str, Any]) -> List[str]:
+        """Route event to appropriate destinations based on content"""
+        destinations = []
+        
+        source = event.get('Source', '')
+        detail_type = event.get('DetailType', '')
+        detail = json.loads(event.get('Detail', '{}'))
+        
+        # Determine event priority
+        priority = self.determine_priority(event)
+        
+        # Route based on business rules
+        if source == 'ecommerce.orders':
+            destinations.extend(self.route_order_event(detail_type, detail, priority))
+        elif source == 'ecommerce.payments':
+            destinations.extend(self.route_payment_event(detail_type, detail, priority))
+        elif source == 'ecommerce.inventory':
+            destinations.extend(self.route_inventory_event(detail_type, detail, priority))
+        
+        return destinations
+    
+    def determine_priority(self, event: Dict[str, Any]) -> EventPriority:
+        """Determine event priority based on content"""
+        detail = json.loads(event.get('Detail', '{}'))
+        
+        # High priority conditions
+        if detail.get('amount', 0) > 1000:  # High-value orders
+            return EventPriority.HIGH
+        
+        if detail.get('customer_tier') == 'premium':  # Premium customers
+            return EventPriority.HIGH
+        
+        if 'urgent' in detail.get('tags', []):  # Urgent tags
+            return EventPriority.HIGH
+        
+        # Medium priority conditions
+        if detail.get('amount', 0) > 100:
+            return EventPriority.MEDIUM
+        
+        return EventPriority.LOW
+    
+    def route_order_event(self, detail_type: str, detail: Dict[str, Any], 
+                         priority: EventPriority) -> List[str]:
+        """Route order-specific events"""
+        destinations = []
+        
+        if detail_type == 'Order Created':
+            # Always route to order processing
+            destinations.append('order-processing')
+            
+            # High priority orders get immediate processing
+            if priority == EventPriority.HIGH:
+                destinations.append('priority-order-processing')
+            
+            # Route to inventory reservation
+            destinations.append('inventory-reservation')
+            
+            # Route to analytics (low priority)
+            if priority != EventPriority.HIGH:
+                destinations.append('analytics-queue')
+        
+        elif detail_type == 'Order Cancelled':
+            destinations.extend(['inventory-release', 'refund-processing'])
+        
+        return destinations
+    
+    def route_payment_event(self, detail_type: str, detail: Dict[str, Any], 
+                          priority: EventPriority) -> List[str]:
+        """Route payment-specific events"""
+        destinations = []
+        
+        if detail_type == 'Payment Processed':
+            if detail.get('status') == 'success':
+                destinations.extend(['fulfillment-queue', 'notification-queue'])
+            elif detail.get('status') == 'failed':
+                destinations.extend(['payment-retry-queue', 'notification-queue'])
+        
+        return destinations
+    
+    def apply_event_filters(self, event: Dict[str, Any]) -> bool:
+        """Apply filters to determine if event should be processed"""
+        detail = json.loads(event.get('Detail', '{}'))
+        
+        # Filter out test events in production
+        if detail.get('environment') == 'test' and os.environ.get('STAGE') == 'prod':
+            return False
+        
+        # Filter out events for inactive customers
+        if detail.get('customer_status') == 'inactive':
+            return False
+        
+        # Filter out duplicate events (simple deduplication)
+        event_id = detail.get('correlation_id')
+        if self.is_duplicate_event(event_id):
+            return False
+        
+        return True
+    
+    def is_duplicate_event(self, event_id: str) -> bool:
+        """Check if event has already been processed (simplified)"""
+        # In production, use DynamoDB or ElastiCache for deduplication
+        return False
+
+class NotificationManager:
+    def __init__(self):
+        self.sns = boto3.client('sns')
+        self.ses = boto3.client('ses')
+    
+    def send_notification(self, notification_type: str, detail: Dict[str, Any]):
+        """Send appropriate notification based on type"""
+        
+        customer_id = detail.get('customer_id')
+        order_id = detail.get('order_id')
+        
+        if notification_type == 'order_confirmation':
+            self.send_order_confirmation(customer_id, order_id, detail)
+        elif notification_type == 'payment_confirmation':
+            self.send_payment_confirmation(customer_id, order_id, detail)
+        elif notification_type == 'shipping_update':
+            self.send_shipping_update(customer_id, order_id, detail)
+    
+    def send_order_confirmation(self, customer_id: str, order_id: str, detail: Dict[str, Any]):
+        """Send order confirmation notification"""
+        
+        # Get customer preferences
+        customer_preferences = self.get_customer_preferences(customer_id)
+        
+        message = {
+            'order_id': order_id,
+            'customer_id': customer_id,
+            'total_amount': detail.get('amount'),
+            'items': detail.get('items', []),
+            'estimated_delivery': detail.get('estimated_delivery')
+        }
+        
+        # Send email if enabled
+        if customer_preferences.get('email_notifications', True):
+            self.send_email_notification('order_confirmation', customer_id, message)
+        
+        # Send SMS if enabled and provided
+        if customer_preferences.get('sms_notifications', False):
+            phone = customer_preferences.get('phone')
+            if phone:
+                self.send_sms_notification('order_confirmation', phone, message)
+        
+        # Send push notification if app user
+        if customer_preferences.get('push_notifications', False):
+            device_token = customer_preferences.get('device_token')
+            if device_token:
+                self.send_push_notification('order_confirmation', device_token, message)
+    
+    def get_customer_preferences(self, customer_id: str) -> Dict[str, Any]:
+        """Get customer notification preferences"""
+        # In production, fetch from database
+        return {
+            'email_notifications': True,
+            'sms_notifications': False,
+            'push_notifications': True,
+            'phone': '+1234567890',
+            'device_token': 'device123'
+        }
+    
+    def send_email_notification(self, template: str, customer_id: str, data: Dict[str, Any]):
+        """Send email notification using SES"""
+        try:
+            # In production, use SES templates
+            self.ses.send_email(
+                Source='noreply@ecommerce.com',
+                Destination={'ToAddresses': [f'customer+{customer_id}@example.com']},
+                Message={
+                    'Subject': {'Data': f'Order Confirmation - {data["order_id"]}'},
+                    'Body': {
+                        'Text': {'Data': f'Your order {data["order_id"]} has been confirmed.'}
+                    }
+                }
+            )
+            print(f"Email sent to customer {customer_id}")
+        except Exception as e:
+            print(f"Failed to send email: {str(e)}")
+
+# Lambda function for intelligent event processing
+def lambda_handler(event, context):
+    """Process events with intelligent routing and filtering"""
+    
+    router = EventRouter()
+    notification_manager = NotificationManager()
+    
+    try:
+        # Handle SQS event records
+        for record in event.get('Records', []):
+            if 'eventBridge' in record.get('eventSource', ''):
+                # Process EventBridge event
+                event_detail = json.loads(record['body'])
+                
+                # Apply filters
+                if not router.apply_event_filters(event_detail):
+                    print(f"Event filtered out: {event_detail.get('id', 'unknown')}")
+                    continue
+                
+                # Route event
+                destinations = router.route_event(event_detail)
+                print(f"Routing event to: {destinations}")
+                
+                # Process notifications if needed
+                if 'notification-queue' in destinations:
+                    detail = json.loads(event_detail.get('Detail', '{}'))
+                    notification_manager.send_notification('order_confirmation', detail)
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'message': 'Events processed successfully'})
+        }
+        
+    except Exception as e:
+        print(f"Error processing events: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': 'Failed to process events'})
+        }
+</code></pre>
+
+                <h2>Error Handling and Resilience Patterns</h2>
+
+                <div class="highlight">
+                    <h3>Event-Driven Resilience Strategies:</h3>
+                    <ul>
+                        <li><strong>Dead Letter Queues:</strong> Capture failed message processing for analysis</li>
+                        <li><strong>Exponential Backoff:</strong> Implement intelligent retry strategies</li>
+                        <li><strong>Circuit Breaker:</strong> Prevent cascade failures in downstream services</li>
+                        <li><strong>Event Replay:</strong> Ability to reprocess events from a specific point</li>
+                        <li><strong>Idempotency:</strong> Ensure safe message reprocessing</li>
+                    </ul>
+                </div>
+
+                <h3>Advanced Error Handling Implementation</h3>
+
+                <pre><code >import json
+import boto3
+import hashlib
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional
+import uuid
+
+class ErrorHandler:
+    def __init__(self):
+        self.dynamodb = boto3.resource('dynamodb')
+        self.sqs = boto3.client('sqs')
+        self.eventbridge = boto3.client('events')
+        self.error_table = self.dynamodb.Table('ProcessingErrors')
+        self.idempotency_table = self.dynamodb.Table('IdempotencyKeys')
+    
+    def ensure_idempotency(self, event: Dict[str, Any], operation: str) -> bool:
+        """Ensure idempotent processing of events"""
+        
+        # Create idempotency key
+        event_content = json.dumps(event, sort_keys=True)
+        idempotency_key = hashlib.md5(
+            f"{operation}:{event_content}".encode()
+        ).hexdigest()
+        
+        try:
+            # Try to insert idempotency key
+            self.idempotency_table.put_item(
+                Item={
+                    'idempotencyKey': idempotency_key,
+                    'operation': operation,
+                    'timestamp': int(datetime.utcnow().timestamp()),
+                    'ttl': int((datetime.utcnow() + timedelta(hours=24)).timestamp())
+                },
+                ConditionExpression='attribute_not_exists(idempotencyKey)'
+            )
+            return True  # First time processing
+            
+        except self.dynamodb.meta.client.exceptions.ConditionalCheckFailedException:
+            return False  # Already processed
+    
+    def handle_processing_error(self, event: Dict[str, Any], error: Exception, 
+                              retry_count: int = 0) -> Dict[str, Any]:
+        """Handle processing errors with intelligent retry logic"""
+        
+        error_id = str(uuid.uuid4())
+        error_type = type(error).__name__
+        
+        # Log error for analysis
+        error_record = {
+            'errorId': error_id,
+            'eventId': event.get('id', 'unknown'),
+            'errorType': error_type,
+            'errorMessage': str(error),
+            'retryCount': retry_count,
+            'timestamp': int(datetime.utcnow().timestamp()),
+            'event': event,
+            'ttl': int((datetime.utcnow() + timedelta(days=30)).timestamp())
+        }
+        
+        self.error_table.put_item(Item=error_record)
+        
+        # Determine retry strategy
+        should_retry = self.should_retry_error(error, retry_count)
+        
+        if should_retry:
+            delay_seconds = self.calculate_retry_delay(retry_count)
+            return {
+                'action': 'retry',
+                'delay_seconds': delay_seconds,
+                'retry_count': retry_count + 1,
+                'error_id': error_id
+            }
+        else:
+            # Send to dead letter queue
+            return {
+                'action': 'dlq',
+                'reason': f"Max retries exceeded or non-retryable error: {error_type}",
+                'error_id': error_id
+            }
+    
+    def should_retry_error(self, error: Exception, retry_count: int) -> bool:
+        """Determine if error should be retried"""
+        
+        # Maximum retry attempts
+        if retry_count >= 5:
+            return False
+        
+        error_type = type(error).__name__
+        
+        # Non-retryable errors
+        non_retryable_errors = [
+            'ValidationError',
+            'InvalidDataError',
+            'AuthenticationError',
+            'PermissionError'
+        ]
+        
+        if error_type in non_retryable_errors:
+            return False
+        
+        # Retryable errors
+        retryable_errors = [
+            'ConnectionError',
+            'TimeoutError',
+            'ServiceUnavailableError',
+            'ThrottlingError'
+        ]
+        
+        return error_type in retryable_errors or 'timeout' in str(error).lower()
+    
+    def calculate_retry_delay(self, retry_count: int) -> int:
+        """Calculate exponential backoff delay"""
+        base_delay = 2
+        max_delay = 300  # 5 minutes
+        
+        delay = min(base_delay ** retry_count, max_delay)
+        return delay
+    
+    def send_to_dlq(self, event: Dict[str, Any], error_info: Dict[str, Any], 
+                   dlq_url: str):
+        """Send failed event to dead letter queue"""
+        
+        dlq_message = {
+            'originalEvent': event,
+            'errorInfo': error_info,
+            'timestamp': datetime.utcnow().isoformat(),
+            'requiresManualReview': True
+        }
+        
+        try:
+            self.sqs.send_message(
+                QueueUrl=dlq_url,
+                MessageBody=json.dumps(dlq_message),
+                MessageAttributes={
+                    'ErrorType': {
+                        'StringValue': error_info.get('error_id', 'unknown'),
+                        'DataType': 'String'
+                    },
+                    'RetryCount': {
+                        'StringValue': str(error_info.get('retry_count', 0)),
+                        'DataType': 'Number'
+                    }
+                }
+            )
+            print(f"Sent event to DLQ: {error_info.get('error_id')}")
+            
+        except Exception as e:
+            print(f"Failed to send to DLQ: {str(e)}")
+    
+    def create_retry_event(self, event: Dict[str, Any], retry_info: Dict[str, Any]):
+        """Create retry event with delay"""
+        
+        retry_event = {
+            'Source': 'ecommerce.retry',
+            'DetailType': 'Event Retry',
+            'Detail': json.dumps({
+                'originalEvent': event,
+                'retryCount': retry_info['retry_count'],
+                'errorId': retry_info['error_id'],
+                'delaySeconds': retry_info['delay_seconds']
+            }),
+            'Time': datetime.utcnow()
+        }
+        
+        # Schedule retry using EventBridge with delay
+        self.eventbridge.put_events(Entries=[retry_event])
+
+class CircuitBreaker:
+    def __init__(self, failure_threshold: int = 5, timeout: int = 60):
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self.failure_count = 0
+        self.last_failure_time = None
+        self.state = 'CLOSED'  # CLOSED, OPEN, HALF_OPEN
+    
+    def call(self, func, *args, **kwargs):
+        """Execute function with circuit breaker protection"""
+        
+        if self.state == 'OPEN':
+            if self._should_attempt_reset():
+                self.state = 'HALF_OPEN'
+            else:
+                raise Exception("Circuit breaker is OPEN")
+        
+        try:
+            result = func(*args, **kwargs)
+            self._on_success()
+            return result
+            
+        except Exception as e:
+            self._on_failure()
+            raise e
+    
+    def _on_success(self):
+        """Handle successful execution"""
+        self.failure_count = 0
+        self.state = 'CLOSED'
+    
+    def _on_failure(self):
+        """Handle failed execution"""
+        self.failure_count += 1
+        self.last_failure_time = datetime.utcnow()
+        
+        if self.failure_count >= self.failure_threshold:
+            self.state = 'OPEN'
+    
+    def _should_attempt_reset(self) -> bool:
+        """Check if circuit breaker should attempt reset"""
+        if self.last_failure_time is None:
+            return True
+        
+        return (datetime.utcnow() - self.last_failure_time).seconds >= self.timeout
+
+# Enhanced Lambda function with error handling
+error_handler = ErrorHandler()
+circuit_breaker = CircuitBreaker()
+
+def lambda_handler(event, context):
+    """Lambda with comprehensive error handling"""
+    
+    processing_results = []
+    
+    for record in event.get('Records', []):
+        try:
+            # Parse event
+            event_data = json.loads(record['body'])
+            
+            # Ensure idempotency
+            if not error_handler.ensure_idempotency(event_data, 'process_event'):
+                print(f"Event already processed: {event_data.get('id', 'unknown')}")
+                continue
+            
+            # Process with circuit breaker
+            result = circuit_breaker.call(process_event_with_retry, event_data)
+            processing_results.append({'success': True, 'event_id': event_data.get('id')})
+            
+        except Exception as e:
+            # Handle error
+            retry_count = int(record.get('messageAttributes', {}).get('RetryCount', {}).get('stringValue', '0'))
+            
+            error_response = error_handler.handle_processing_error(
+                event_data, e, retry_count
+            )
+            
+            if error_response['action'] == 'retry':
+                error_handler.create_retry_event(event_data, error_response)
+            elif error_response['action'] == 'dlq':
+                dlq_url = os.environ.get('DLQ_URL')
+                if dlq_url:
+                    error_handler.send_to_dlq(event_data, error_response, dlq_url)
+            
+            processing_results.append({
+                'success': False, 
+                'event_id': event_data.get('id'),
+                'error_id': error_response['error_id']
+            })
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'results': processing_results,
+            'circuit_breaker_state': circuit_breaker.state
+        })
+    }
+
+def process_event_with_retry(event_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Process event with potential for failure"""
+    # Your actual processing logic here
+    # This function should raise exceptions for failures
+    pass
+</code></pre>
+
+                <h2>Performance Monitoring and Optimization</h2>
+
+                <h3>Event-Driven Performance Metrics</h3>
+
+                <pre><code >import boto3
+import json
+import time
+from datetime import datetime
+from typing import Dict, List
+
+class EventMetricsCollector:
+    def __init__(self):
+        self.cloudwatch = boto3.client('cloudwatch')
+        self.namespace = 'EcommerceEventDriven'
+    
+    def track_event_processing(self, event_source: str, event_type: str, 
+                             processing_time: float, success: bool):
+        """Track event processing metrics"""
+        
+        metrics = [
+            {
+                'MetricName': 'EventProcessingTime',
+                'Value': processing_time,
+                'Unit': 'Milliseconds',
+                'Dimensions': [
+                    {'Name': 'EventSource', 'Value': event_source},
+                    {'Name': 'EventType', 'Value': event_type}
+                ]
+            },
+            {
+                'MetricName': 'EventsProcessed',
+                'Value': 1,
+                'Unit': 'Count',
+                'Dimensions': [
+                    {'Name': 'EventSource', 'Value': event_source},
+                    {'Name': 'EventType', 'Value': event_type},
+                    {'Name': 'Status', 'Value': 'success' if success else 'failure'}
+                ]
+            }
+        ]
+        
+        if not success:
+            metrics.append({
+                'MetricName': 'ProcessingErrors',
+                'Value': 1,
+                'Unit': 'Count',
+                'Dimensions': [
+                    {'Name': 'EventSource', 'Value': event_source},
+                    {'Name': 'EventType', 'Value': event_type}
+                ]
+            })
+        
+        self.cloudwatch.put_metric_data(
+            Namespace=self.namespace,
+            MetricData=metrics
+        )
+    
+    def track_queue_metrics(self, queue_name: str, messages_processed: int, 
+                          avg_processing_time: float):
+        """Track queue-specific metrics"""
+        
+        metrics = [
+            {
+                'MetricName': 'QueueThroughput',
+                'Value': messages_processed,
+                'Unit': 'Count/Second',
+                'Dimensions': [{'Name': 'QueueName', 'Value': queue_name}]
+            },
+            {
+                'MetricName': 'AvgQueueProcessingTime',
+                'Value': avg_processing_time,
+                'Unit': 'Milliseconds',
+                'Dimensions': [{'Name': 'QueueName', 'Value': queue_name}]
+            }
+        ]
+        
+        self.cloudwatch.put_metric_data(
+            Namespace=self.namespace,
+            MetricData=metrics
+        )
+
+# Usage in processing functions
+metrics_collector = EventMetricsCollector()
+
+def process_with_metrics(event_data: Dict, processing_func):
+    """Wrapper to add metrics to event processing"""
+    start_time = time.time()
+    success = False
+    
+    try:
+        result = processing_func(event_data)
+        success = True
+        return result
+    
+    except Exception as e:
+        print(f"Processing failed: {str(e)}")
+        raise
+    
+    finally:
+        processing_time = (time.time() - start_time) * 1000
+        
+        event_source = event_data.get('Source', 'unknown')
+        event_type = event_data.get('DetailType', 'unknown')
+        
+        metrics_collector.track_event_processing(
+            event_source, event_type, processing_time, success
+        )
+</code></pre>
+
+                <h2>Conclusion</h2>
+
+                <p>Event-driven architectures with EventBridge, SQS, and Lambda provide a powerful foundation for building scalable, resilient systems. The patterns demonstrated in this guide—from intelligent event routing and advanced error handling to comprehensive monitoring—enable you to create sophisticated event-driven applications that can handle complex business workflows.</p>
+
+                <p>Key takeaways for successful event-driven implementation:</p>
+
+                <div class="highlight">
+                    <ul>
+                        <li><strong>Design for Idempotency:</strong> Ensure events can be safely reprocessed</li>
+                        <li><strong>Implement Comprehensive Error Handling:</strong> Plan for failures and implement intelligent retry strategies</li>
+                        <li><strong>Monitor Everything:</strong> Track event processing performance, error rates, and business metrics</li>
+                        <li><strong>Use Appropriate Queuing Strategies:</strong> Choose FIFO vs. standard queues based on requirements</li>
+                        <li><strong>Plan for Scale:</strong> Design your event schema and routing to handle growth</li>
+                        <li><strong>Test Failure Scenarios:</strong> Validate your error handling and recovery mechanisms</li>
+                    </ul>
+                </div>
+
+                <p>Remember that event-driven architectures require careful consideration of event ordering, deduplication, and eventual consistency. Start with simple patterns and gradually add complexity as your system grows and requirements evolve.</p>
+
+                <p>The investment in proper event-driven design pays dividends in system flexibility, scalability, and maintainability as your serverless applications mature.</p>
+        </div>
+    </section>
+
+    <!-- Footer (Copied from Landing Page) -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <h3>Samir Adhikari</h3>
+                    <p>A blog dedicated to sharing AWS insights, DevOps practices, and cloud solution strategies.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="/">Home</a></li>
+                        <li><a href="/blog.html">Blog</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Categories</h4>
+                    <ul>
+                        <li><a href="#">AWS</a></li>
+                        <li><a href="#">DevOps</a></li>
+                        <li><a href="#">Serverless</a></li>
+                        <li><a href="#">EventBridge</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Contact</h4>
+                    <ul>
+                        <li><a href="mailto:samir.adhhh@gmail.com">samir.adhhh@gmail.com</a></li>
+                        <li><a href="tel:+9861762422">9861762422</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-divider"></div>
+            <div class="footer-bottom">
+                <div class="copyright">© 2025 Samir Adhikari. All rights reserved.</div>
+                <div class="footer-social">
+                    <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                    <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                    <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Back to top button -->
+    <a href="#" class="back-to-top" id="backToTopBtn" aria-label="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- Theme Toggle ---
+            const checkbox = document.getElementById('checkbox');
+            const themeOverlay = document.getElementById('themeOverlay');
+            const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+            function applyThemeTransition() {
+                if (themeOverlay) {
+                    themeOverlay.style.opacity = '1';
+                    if (getComputedStyle(themeOverlay).display === 'none') {
+                         themeOverlay.style.display = 'block';
+                    }
+                    setTimeout(() => {
+                        themeOverlay.style.opacity = '0';
+                        setTimeout(() => {
+                            themeOverlay.style.display = 'none';
+                        }, 300);
+                    }, 10);
+                }
+            }
+
+            function setTheme(theme, manualSwitch = false) {
+                applyThemeTransition();
+                document.documentElement.setAttribute('data-theme', theme);
+                if (manualSwitch) {
+                    document.documentElement.setAttribute('data-theme-forced', theme);
+                }
+                localStorage.setItem('theme', theme);
+                if (checkbox) {
+                    checkbox.checked = theme === 'dark';
+                }
+            }
+
+            const storedTheme = localStorage.getItem('theme');
+            const forcedTheme = document.documentElement.getAttribute('data-theme-forced');
+
+            if (storedTheme) {
+                setTheme(storedTheme);
+            } else if (!forcedTheme && prefersDarkScheme.matches) {
+                setTheme('dark');
+            } else {
+                setTheme('light');
+            }
+
+            if (checkbox) {
+                checkbox.addEventListener('change', () => {
+                    const newTheme = checkbox.checked ? 'dark' : 'light';
+                    setTheme(newTheme, true);
+                });
+            }
+            
+            prefersDarkScheme.addEventListener('change', (e) => {
+                if (!document.documentElement.getAttribute('data-theme-forced')) {
+                    setTheme(e.matches ? 'dark' : 'light');
+                }
+            });
+
+             // --- Back to Top Button ---
+            const backToTopBtn = document.getElementById('backToTopBtn');
+            if (backToTopBtn) {
+                window.addEventListener('scroll', () => {
+                    if (window.pageYOffset > 300) {
+                        backToTopBtn.classList.add('visible');
+                    } else {
+                        backToTopBtn.classList.remove('visible');
+                    }
+                });
+
+                backToTopBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            }
+
+            // --- Mobile Menu ---
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+
+            if (mobileMenuBtn && mobileMenu) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    const isActive = mobileMenu.classList.toggle('active');
+                    mobileMenuBtn.setAttribute('aria-expanded', isActive);
+                });
+
+                mobileMenu.querySelectorAll('a').forEach(link => {
+                    link.addEventListener('click', () => {
+                        mobileMenu.classList.remove('active');
+                        mobileMenuBtn.setAttribute('aria-expanded', 'false');
+                    });
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>
