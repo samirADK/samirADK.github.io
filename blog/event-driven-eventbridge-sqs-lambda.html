@@ -734,11 +734,11 @@
 
                 <div class="architecture-diagram">
                     <h3>Event-Driven Architecture Flow</h3>
-                    <p>📱 User Action → 🚀 API Gateway → 📋 Lambda Producer → 📡 EventBridge → 📊 Multiple Consumers</p>
+                    <p> User Action → API Gateway → Lambda Producer → EventBridge → Multiple Consumers</p>
                     <p>                                                    ↓</p>
-                    <p>                                              🔄 SQS Queues → ⚡ Lambda Processors</p>
+                    <p>                                              SQS Queues →  Lambda Processors</p>
                     <p>                                                    ↓</p>
-                    <p>                                              💾 DynamoDB / 📧 SNS / 🔔 External APIs</p>
+                    <p>                                              DynamoDB /  SNS /  External APIs</p>
                 </div>
 
                 <h2>Real-World Use Case: E-commerce Order Processing</h2>
@@ -758,833 +758,165 @@
 
                 <h3>Custom Event Bus and Schema Registry</h3>
 
-                <pre><code >AWSTemplateFormatVersion: '2010-09-09'
+                <pre><code>AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
-Description: 'Event-Driven E-commerce System'
-
 Resources:
-  # Custom Event Bus for E-commerce Events
+  # Custom Event Bus
   EcommerceEventBus:
     Type: AWS::Events::EventBus
     Properties:
       Name: ecommerce-events
-      Description: Event bus for e-commerce order processing
 
-  # Schema Registry for Event Validation
-  EcommerceSchemaRegistry:
-    Type: AWS::EventSchemas::Registry
-    Properties:
-      RegistryName: EcommerceSchemas
-      Description: Schema registry for e-commerce events
-
-  # Order Event Schema
-  OrderEventSchema:
-    Type: AWS::EventSchemas::Schema
-    Properties:
-      RegistryName: !Ref EcommerceSchemaRegistry
-      SchemaName: OrderEvent
-      Type: JSONSchemaDraft4
-      Description: Schema for order-related events
-      Content: |
-        {
-          "$schema": "http://json-schema.org/draft-04/schema#",
-          "title": "Order Event",
-          "type": "object",
-          "properties": {
-            "version": {
-              "type": "string",
-              "enum": ["1.0"]
-            },
-            "id": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "source": {
-              "type": "string",
-              "enum": ["ecommerce.orders", "ecommerce.payments", "ecommerce.inventory"]
-            },
-            "detail-type": {
-              "type": "string",
-              "enum": ["Order Created", "Order Updated", "Payment Processed", "Inventory Reserved"]
-            },
-            "detail": {
-              "type": "object",
-              "properties": {
-                "orderId": {
-                  "type": "string"
-                },
-                "customerId": {
-                  "type": "string"
-                },
-                "amount": {
-                  "type": "number",
-                  "minimum": 0
-                },
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "productId": {"type": "string"},
-                      "quantity": {"type": "integer", "minimum": 1},
-                      "price": {"type": "number", "minimum": 0}
-                    },
-                    "required": ["productId", "quantity", "price"]
-                  }
-                }
-              },
-              "required": ["orderId", "customerId"]
-            }
-          },
-          "required": ["version", "id", "source", "detail-type", "detail"]
-        }
-
-  # Event Rules for Different Processing Paths
+  # Route Order Created events to queues
   OrderCreatedRule:
     Type: AWS::Events::Rule
     Properties:
       EventBusName: !Ref EcommerceEventBus
       EventPattern:
-        source:
-          - "ecommerce.orders"
-        detail-type:
-          - "Order Created"
+        source: ["ecommerce.orders"]
+        detail-type: ["Order Created"]
       Targets:
-        - Arn: !GetAtt OrderProcessingQueue.Arn
-          Id: "OrderProcessingTarget"
-          SqsParameters:
-            MessageGroupId: "order-processing"
+        - Arn: !GetAtt OrderQueue.Arn
+          Id: "OrderTarget"
         - Arn: !GetAtt InventoryQueue.Arn
           Id: "InventoryTarget"
-        - Arn: !GetAtt NotificationQueue.Arn
-          Id: "NotificationTarget"
 
-  PaymentProcessedRule:
-    Type: AWS::Events::Rule
-    Properties:
-      EventBusName: !Ref EcommerceEventBus
-      EventPattern:
-        source:
-          - "ecommerce.payments"
-        detail-type:
-          - "Payment Processed"
-        detail:
-          status:
-            - "success"
-      Targets:
-        - Arn: !GetAtt FulfillmentQueue.Arn
-          Id: "FulfillmentTarget"
-        - Arn: !GetAtt NotificationQueue.Arn
-          Id: "PaymentNotificationTarget"
 </code></pre>
 
                 <h3>Event Publisher Implementation</h3>
 
-                <pre><code >import json
+                <pre><code>import json
 import boto3
-import uuid
 from datetime import datetime
-from typing import Dict, Any, List
-from dataclasses import dataclass, asdict
-from enum import Enum
-
-class EventSource(Enum):
-    ORDERS = "ecommerce.orders"
-    PAYMENTS = "ecommerce.payments"
-    INVENTORY = "ecommerce.inventory"
-    SHIPPING = "ecommerce.shipping"
-    NOTIFICATIONS = "ecommerce.notifications"
-
-@dataclass
-class OrderItem:
-    product_id: str
-    quantity: int
-    price: float
-    name: str
-
-@dataclass
-class OrderEventDetail:
-    order_id: str
-    customer_id: str
-    amount: float
-    currency: str = "USD"
-    status: str = "created"
-    items: List[OrderItem] = None
-    timestamp: str = None
-    
-    def __post_init__(self):
-        if self.timestamp is None:
-            self.timestamp = datetime.utcnow().isoformat()
-        if self.items is None:
-            self.items = []
 
 class EventPublisher:
-    def __init__(self, event_bus_name: str = "ecommerce-events"):
+    def __init__(self, event_bus_name="ecommerce-events"):
         self.event_bus_name = event_bus_name
         self.eventbridge = boto3.client('events')
     
-    def publish_event(self, source: EventSource, detail_type: str, 
-                     detail: Dict[str, Any], event_id: str = None) -> bool:
-        """Publish event to EventBridge"""
-        
-        if event_id is None:
-            event_id = str(uuid.uuid4())
-        
-        event_entry = {
-            'Source': source.value,
-            'DetailType': detail_type,
-            'Detail': json.dumps(detail, default=self._json_serializer),
-            'EventBusName': self.event_bus_name,
-            'Time': datetime.utcnow(),
-            'Resources': [],
-        }
-        
-        try:
-            response = self.eventbridge.put_events(Entries=[event_entry])
-            
-            if response['FailedEntryCount'] > 0:
-                print(f"Failed to publish event: {response['Entries'][0]}")
-                return False
-            
-            print(f"Successfully published event {event_id} to {source.value}")
-            return True
-            
-        except Exception as e:
-            print(f"Error publishing event: {str(e)}")
-            return False
-    
-    def publish_order_created(self, order_detail: OrderEventDetail) -> bool:
+    def publish_order_created(self, order_id, customer_id, amount):
         """Publish order created event"""
-        return self.publish_event(
-            source=EventSource.ORDERS,
-            detail_type="Order Created",
-            detail=asdict(order_detail)
-        )
-    
-    def publish_payment_processed(self, order_id: str, payment_id: str, 
-                                 amount: float, status: str) -> bool:
-        """Publish payment processed event"""
-        payment_detail = {
-            "order_id": order_id,
-            "payment_id": payment_id,
-            "amount": amount,
-            "status": status,
-            "timestamp": datetime.utcnow().isoformat()
+        event = {
+            'Source': 'ecommerce.orders',
+            'DetailType': 'Order Created',
+            'Detail': json.dumps({
+                'orderId': order_id,
+                'customerId': customer_id,
+                'amount': amount,
+                'timestamp': datetime.utcnow().isoformat()
+            }),
+            'EventBusName': self.event_bus_name
         }
         
-        return self.publish_event(
-            source=EventSource.PAYMENTS,
-            detail_type="Payment Processed",
-            detail=payment_detail
-        )
-    
-    def publish_inventory_updated(self, product_id: str, quantity: int, 
-                                action: str, order_id: str = None) -> bool:
-        """Publish inventory updated event"""
-        inventory_detail = {
-            "product_id": product_id,
-            "quantity": quantity,
-            "action": action,  # reserved, released, updated
-            "order_id": order_id,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        
-        return self.publish_event(
-            source=EventSource.INVENTORY,
-            detail_type="Inventory Updated",
-            detail=inventory_detail
-        )
-    
-    def _json_serializer(self, obj):
-        """Custom JSON serializer for complex objects"""
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        return str(obj)
+        response = self.eventbridge.put_events(Entries=[event])
+        return response['FailedEntryCount'] == 0
 
-# Usage in Lambda function
+# Usage
 publisher = EventPublisher()
+publisher.publish_order_created('order-123', 'customer-456', 99.99)
 
-def create_order_handler(event, context):
-    """Lambda function to handle order creation"""
-    
-    try:
-        # Parse incoming request
-        order_data = json.loads(event['body'])
-        
-        # Create order in database
-        order_id = str(uuid.uuid4())
-        
-        # Prepare order detail
-        items = [
-            OrderItem(
-                product_id=item['productId'],
-                quantity=item['quantity'],
-                price=item['price'],
-                name=item['name']
-            )
-            for item in order_data['items']
-        ]
-        
-        order_detail = OrderEventDetail(
-            order_id=order_id,
-            customer_id=order_data['customerId'],
-            amount=order_data['totalAmount'],
-            items=items,
-            status="created"
-        )
-        
-        # Publish order created event
-        success = publisher.publish_order_created(order_detail)
-        
-        if success:
-            return {
-                'statusCode': 201,
-                'body': json.dumps({
-                    'orderId': order_id,
-                    'status': 'created',
-                    'message': 'Order created successfully'
-                })
-            }
-        else:
-            return {
-                'statusCode': 500,
-                'body': json.dumps({'error': 'Failed to publish order event'})
-            }
-            
-    except Exception as e:
-        print(f"Error creating order: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': 'Internal server error'})
-        }
 </code></pre>
 
                 <h2>Advanced SQS Patterns and Processing</h2>
 
                 <h3>Multi-Queue Processing Strategy</h3>
 
-                <pre><code >  # Order Processing Queue (FIFO for order consistency)
-  OrderProcessingQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: order-processing.fifo
-      FifoQueue: true
-      ContentBasedDeduplication: true
-      MessageRetentionPeriod: 1209600  # 14 days
-      VisibilityTimeoutSeconds: 300
-      ReceiveMessageWaitTimeSeconds: 20
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt OrderProcessingDLQ.Arn
-        maxReceiveCount: 3
+                <pre><code># FIFO Queue for order processing (maintains order)
+OrderProcessingQueue:
+  Type: AWS::SQS::Queue
+  Properties:
+    QueueName: order-processing.fifo
+    FifoQueue: true
+    ContentBasedDeduplication: true
+    VisibilityTimeoutSeconds: 300
+    RedrivePolicy:
+      deadLetterTargetArn: !GetAtt OrderDLQ.Arn
+      maxReceiveCount: 3
 
-  OrderProcessingDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: order-processing-dlq.fifo
-      FifoQueue: true
-      MessageRetentionPeriod: 1209600
+# Standard Queue for notifications (high throughput)
+NotificationQueue:
+  Type: AWS::SQS::Queue
+  Properties:
+    QueueName: notifications
+    VisibilityTimeoutSeconds: 60
+    ReceiveMessageWaitTimeSeconds: 20
 
-  # Inventory Queue (Standard for parallel processing)
-  InventoryQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: inventory-updates
-      VisibilityTimeoutSeconds: 180
-      ReceiveMessageWaitTimeSeconds: 20
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt InventoryDLQ.Arn
-        maxReceiveCount: 5
-
-  InventoryDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: inventory-updates-dlq
-      MessageRetentionPeriod: 1209600
-
-  # High-volume Notification Queue
-  NotificationQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: notifications
-      VisibilityTimeoutSeconds: 60
-      ReceiveMessageWaitTimeSeconds: 20
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt NotificationDLQ.Arn
-        maxReceiveCount: 3
-
-  NotificationDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: notifications-dlq
-
-  # Batch processing for analytics
-  AnalyticsQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: analytics-events
-      VisibilityTimeoutSeconds: 900  # 15 minutes for batch processing
-      ReceiveMessageWaitTimeSeconds: 20
 </code></pre>
 
                 <h3>Intelligent Queue Processing</h3>
 
-                <pre><code >import json
+                <pre><code>import json
 import boto3
-from typing import List, Dict, Any
-import time
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-@dataclass
-class ProcessingResult:
-    success: bool
-    message_id: str
-    error: str = None
-    processing_time: float = 0
 
 class SQSProcessor:
-    def __init__(self, queue_url: str, max_workers: int = 10):
+    def __init__(self, queue_url):
         self.queue_url = queue_url
-        self.max_workers = max_workers
         self.sqs = boto3.client('sqs')
         self.dynamodb = boto3.resource('dynamodb')
     
-    def process_messages_batch(self, max_messages: int = 10) -> List[ProcessingResult]:
-        """Process multiple messages with parallel execution"""
-        
-        # Receive messages from queue
+    def process_messages(self):
+        """Process messages from SQS queue"""
         response = self.sqs.receive_message(
             QueueUrl=self.queue_url,
-            MaxNumberOfMessages=max_messages,
-            WaitTimeSeconds=20,
-            MessageAttributeNames=['All']
+            MaxNumberOfMessages=10,
+            WaitTimeSeconds=20
         )
         
-        messages = response.get('Messages', [])
-        if not messages:
-            return []
-        
-        print(f"Processing {len(messages)} messages from queue")
-        
-        # Process messages in parallel
-        results = []
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_message = {
-                executor.submit(self.process_single_message, msg): msg 
-                for msg in messages
-            }
-            
-            for future in as_completed(future_to_message):
-                message = future_to_message[future]
-                try:
-                    result = future.result(timeout=60)
-                    results.append(result)
-                    
-                    # Delete successfully processed messages
-                    if result.success:
-                        self.sqs.delete_message(
-                            QueueUrl=self.queue_url,
-                            ReceiptHandle=message['ReceiptHandle']
-                        )
-                    
-                except Exception as e:
-                    print(f"Error processing message {message.get('MessageId', 'unknown')}: {str(e)}")
-                    results.append(ProcessingResult(
-                        success=False,
-                        message_id=message.get('MessageId', 'unknown'),
-                        error=str(e)
-                    ))
-        
-        return results
-    
-    def process_single_message(self, message: Dict[str, Any]) -> ProcessingResult:
-        """Process individual message"""
-        start_time = time.time()
-        message_id = message.get('MessageId', 'unknown')
-        
-        try:
-            # Parse message body
-            body = json.loads(message['Body'])
-            
-            # Handle EventBridge messages
-            if 'Source' in body:
-                return self.process_eventbridge_message(body, message_id)
-            else:
-                return self.process_direct_message(body, message_id)
+        for message in response.get('Messages', []):
+            try:
+                # Parse EventBridge message
+                event = json.loads(message['Body'])
+                detail = json.loads(event['Detail'])
                 
-        except json.JSONDecodeError as e:
-            return ProcessingResult(
-                success=False,
-                message_id=message_id,
-                error=f"Invalid JSON: {str(e)}",
-                processing_time=time.time() - start_time
-            )
-        except Exception as e:
-            return ProcessingResult(
-                success=False,
-                message_id=message_id,
-                error=str(e),
-                processing_time=time.time() - start_time
-            )
-    
-    def process_eventbridge_message(self, event: Dict[str, Any], 
-                                  message_id: str) -> ProcessingResult:
-        """Process EventBridge event message"""
-        start_time = time.time()
-        
-        source = event.get('Source')
-        detail_type = event.get('DetailType')
-        detail = json.loads(event.get('Detail', '{}'))
-        
-        try:
-            if source == 'ecommerce.orders' and detail_type == 'Order Created':
-                self.process_order_created(detail)
-            elif source == 'ecommerce.payments' and detail_type == 'Payment Processed':
-                self.process_payment_processed(detail)
-            elif source == 'ecommerce.inventory' and detail_type == 'Inventory Updated':
-                self.process_inventory_updated(detail)
-            else:
-                print(f"Unhandled event: {source} - {detail_type}")
-                return ProcessingResult(
-                    success=False,
-                    message_id=message_id,
-                    error=f"Unhandled event type: {source} - {detail_type}",
-                    processing_time=time.time() - start_time
+                # Process based on event type
+                if event['DetailType'] == 'Order Created':
+                    self.process_order(detail)
+                
+                # Delete message after processing
+                self.sqs.delete_message(
+                    QueueUrl=self.queue_url,
+                    ReceiptHandle=message['ReceiptHandle']
                 )
-            
-            return ProcessingResult(
-                success=True,
-                message_id=message_id,
-                processing_time=time.time() - start_time
-            )
-            
-        except Exception as e:
-            return ProcessingResult(
-                success=False,
-                message_id=message_id,
-                error=str(e),
-                processing_time=time.time() - start_time
-            )
+            except Exception as e:
+                print(f"Error: {e}")
     
-    def process_order_created(self, detail: Dict[str, Any]):
-        """Handle order created event"""
-        order_id = detail['order_id']
-        customer_id = detail['customer_id']
-        
-        # Update order status in database
-        orders_table = self.dynamodb.Table('Orders')
-        orders_table.update_item(
-            Key={'orderId': order_id},
-            UpdateExpression='SET #status = :status, #updatedAt = :timestamp',
-            ExpressionAttributeNames={
-                '#status': 'status',
-                '#updatedAt': 'updatedAt'
-            },
-            ExpressionAttributeValues={
-                ':status': 'processing',
-                ':timestamp': int(time.time())
-            }
-        )
-        
-        # Log event for analytics
-        self.log_analytics_event('order_created', detail)
-        
-        print(f"Processed order created: {order_id}")
-    
-    def process_payment_processed(self, detail: Dict[str, Any]):
-        """Handle payment processed event"""
-        order_id = detail['order_id']
-        payment_status = detail['status']
-        
-        # Update order payment status
-        orders_table = self.dynamodb.Table('Orders')
-        orders_table.update_item(
-            Key={'orderId': order_id},
-            UpdateExpression='SET paymentStatus = :status, #updatedAt = :timestamp',
-            ExpressionAttributeNames={'#updatedAt': 'updatedAt'},
-            ExpressionAttributeValues={
-                ':status': payment_status,
-                ':timestamp': int(time.time())
-            }
-        )
-        
-        self.log_analytics_event('payment_processed', detail)
-        
-        print(f"Processed payment for order: {order_id}, status: {payment_status}")
-    
-    def process_inventory_updated(self, detail: Dict[str, Any]):
-        """Handle inventory updated event"""
-        product_id = detail['product_id']
-        quantity = detail['quantity']
-        action = detail['action']
-        
-        # Update inventory in database
-        inventory_table = self.dynamodb.Table('Inventory')
-        
-        if action == 'reserved':
-            inventory_table.update_item(
-                Key={'productId': product_id},
-                UpdateExpression='SET reservedQuantity = reservedQuantity + :qty',
-                ExpressionAttributeValues={':qty': quantity}
-            )
-        elif action == 'released':
-            inventory_table.update_item(
-                Key={'productId': product_id},
-                UpdateExpression='SET reservedQuantity = reservedQuantity - :qty',
-                ExpressionAttributeValues={':qty': quantity}
-            )
-        
-        self.log_analytics_event('inventory_updated', detail)
-        
-        print(f"Updated inventory for product {product_id}: {action} {quantity}")
-    
-    def log_analytics_event(self, event_type: str, detail: Dict[str, Any]):
-        """Log event for analytics processing"""
-        analytics_table = self.dynamodb.Table('EventAnalytics')
-        
-        analytics_table.put_item(
-            Item={
-                'eventId': f"{event_type}#{int(time.time())}#{detail.get('order_id', 'unknown')}",
-                'eventType': event_type,
-                'timestamp': int(time.time()),
-                'detail': detail,
-                'ttl': int(time.time()) + (90 * 24 * 60 * 60)  # 90 days TTL
-            }
-        )
+    def process_order(self, detail):
+        """Process order event"""
+        table = self.dynamodb.Table('Orders')
+        table.put_item(Item=detail)
 
-# Lambda function for queue processing
-def lambda_handler(event, context):
-    """Lambda function to process SQS messages"""
-    
-    # Determine queue URL from environment or event
-    queue_url = os.environ.get('QUEUE_URL')
-    
-    if not queue_url:
-        return {
-            'statusCode': 400,
-            'body': json.dumps({'error': 'Queue URL not configured'})
-        }
-    
-    processor = SQSProcessor(queue_url, max_workers=5)
-    
-    try:
-        # Process messages
-        results = processor.process_messages_batch(max_messages=10)
-        
-        successful = len([r for r in results if r.success])
         failed = len([r for r in results if not r.success])
-        
-        print(f"Processing completed: {successful} successful, {failed} failed")
-        
-        # Log failed processing for investigation
-        for result in results:
-            if not result.success:
-                print(f"Failed to process message {result.message_id}: {result.error}")
-        
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'processed': len(results),
-                'successful': successful,
-                'failed': failed
-            })
-        }
-        
-    except Exception as e:
-        print(f"Error in message processing: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': 'Processing failed'})
-        }
+
 </code></pre>
 
                 <h2>Advanced Lambda Event Patterns</h2>
 
                 <h3>Event Filtering and Routing</h3>
 
-                <pre><code >import json
-import boto3
-import re
-from typing import Dict, Any, List, Optional
-from enum import Enum
+                <pre><code>import json
 
-class EventPriority(Enum):
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
+def lambda_handler(event, context):
+    """Route events based on priority and type"""
+    for record in event['Records']:
+        # Parse EventBridge message
+        body = json.loads(record['body'])
+        detail = json.loads(body['Detail'])
+        
+        # Route high-value orders differently
+        if detail.get('amount', 0) > 1000:
+            process_priority_order(detail)
+        else:
+            process_standard_order(detail)
 
-class EventRouter:
-    def __init__(self):
-        self.eventbridge = boto3.client('events')
-        self.sqs = boto3.client('sqs')
-        self.sns = boto3.client('sns')
-    
-    def route_event(self, event: Dict[str, Any]) -> List[str]:
-        """Route event to appropriate destinations based on content"""
-        destinations = []
-        
-        source = event.get('Source', '')
-        detail_type = event.get('DetailType', '')
-        detail = json.loads(event.get('Detail', '{}'))
-        
-        # Determine event priority
-        priority = self.determine_priority(event)
-        
-        # Route based on business rules
-        if source == 'ecommerce.orders':
-            destinations.extend(self.route_order_event(detail_type, detail, priority))
-        elif source == 'ecommerce.payments':
-            destinations.extend(self.route_payment_event(detail_type, detail, priority))
-        elif source == 'ecommerce.inventory':
-            destinations.extend(self.route_inventory_event(detail_type, detail, priority))
-        
-        return destinations
-    
-    def determine_priority(self, event: Dict[str, Any]) -> EventPriority:
-        """Determine event priority based on content"""
-        detail = json.loads(event.get('Detail', '{}'))
-        
-        # High priority conditions
-        if detail.get('amount', 0) > 1000:  # High-value orders
-            return EventPriority.HIGH
-        
-        if detail.get('customer_tier') == 'premium':  # Premium customers
-            return EventPriority.HIGH
-        
-        if 'urgent' in detail.get('tags', []):  # Urgent tags
-            return EventPriority.HIGH
-        
-        # Medium priority conditions
-        if detail.get('amount', 0) > 100:
-            return EventPriority.MEDIUM
-        
-        return EventPriority.LOW
-    
-    def route_order_event(self, detail_type: str, detail: Dict[str, Any], 
-                         priority: EventPriority) -> List[str]:
-        """Route order-specific events"""
-        destinations = []
-        
-        if detail_type == 'Order Created':
-            # Always route to order processing
-            destinations.append('order-processing')
-            
-            # High priority orders get immediate processing
-            if priority == EventPriority.HIGH:
-                destinations.append('priority-order-processing')
-            
-            # Route to inventory reservation
-            destinations.append('inventory-reservation')
-            
-            # Route to analytics (low priority)
-            if priority != EventPriority.HIGH:
-                destinations.append('analytics-queue')
-        
-        elif detail_type == 'Order Cancelled':
-            destinations.extend(['inventory-release', 'refund-processing'])
-        
-        return destinations
-    
-    def route_payment_event(self, detail_type: str, detail: Dict[str, Any], 
-                          priority: EventPriority) -> List[str]:
-        """Route payment-specific events"""
-        destinations = []
-        
-        if detail_type == 'Payment Processed':
-            if detail.get('status') == 'success':
-                destinations.extend(['fulfillment-queue', 'notification-queue'])
-            elif detail.get('status') == 'failed':
-                destinations.extend(['payment-retry-queue', 'notification-queue'])
-        
-        return destinations
-    
-    def apply_event_filters(self, event: Dict[str, Any]) -> bool:
-        """Apply filters to determine if event should be processed"""
-        detail = json.loads(event.get('Detail', '{}'))
-        
-        # Filter out test events in production
-        if detail.get('environment') == 'test' and os.environ.get('STAGE') == 'prod':
-            return False
-        
-        # Filter out events for inactive customers
-        if detail.get('customer_status') == 'inactive':
-            return False
-        
-        # Filter out duplicate events (simple deduplication)
-        event_id = detail.get('correlation_id')
-        if self.is_duplicate_event(event_id):
-            return False
-        
-        return True
-    
-    def is_duplicate_event(self, event_id: str) -> bool:
-        """Check if event has already been processed (simplified)"""
-        # In production, use DynamoDB or ElastiCache for deduplication
-        return False
+def process_priority_order(detail):
+    """Fast-track high-value orders"""
+    print(f"Priority order: {detail['orderId']}")
 
-class NotificationManager:
-    def __init__(self):
-        self.sns = boto3.client('sns')
-        self.ses = boto3.client('ses')
-    
-    def send_notification(self, notification_type: str, detail: Dict[str, Any]):
-        """Send appropriate notification based on type"""
-        
-        customer_id = detail.get('customer_id')
-        order_id = detail.get('order_id')
-        
-        if notification_type == 'order_confirmation':
-            self.send_order_confirmation(customer_id, order_id, detail)
-        elif notification_type == 'payment_confirmation':
-            self.send_payment_confirmation(customer_id, order_id, detail)
-        elif notification_type == 'shipping_update':
-            self.send_shipping_update(customer_id, order_id, detail)
-    
-    def send_order_confirmation(self, customer_id: str, order_id: str, detail: Dict[str, Any]):
-        """Send order confirmation notification"""
-        
-        # Get customer preferences
-        customer_preferences = self.get_customer_preferences(customer_id)
-        
-        message = {
-            'order_id': order_id,
-            'customer_id': customer_id,
-            'total_amount': detail.get('amount'),
-            'items': detail.get('items', []),
-            'estimated_delivery': detail.get('estimated_delivery')
-        }
-        
-        # Send email if enabled
-        if customer_preferences.get('email_notifications', True):
-            self.send_email_notification('order_confirmation', customer_id, message)
-        
-        # Send SMS if enabled and provided
-        if customer_preferences.get('sms_notifications', False):
-            phone = customer_preferences.get('phone')
-            if phone:
-                self.send_sms_notification('order_confirmation', phone, message)
-        
-        # Send push notification if app user
-        if customer_preferences.get('push_notifications', False):
-            device_token = customer_preferences.get('device_token')
-            if device_token:
-                self.send_push_notification('order_confirmation', device_token, message)
-    
-    def get_customer_preferences(self, customer_id: str) -> Dict[str, Any]:
-        """Get customer notification preferences"""
-        # In production, fetch from database
-        return {
-            'email_notifications': True,
-            'sms_notifications': False,
-            'push_notifications': True,
-            'phone': '+1234567890',
-            'device_token': 'device123'
-        }
-    
-    def send_email_notification(self, template: str, customer_id: str, data: Dict[str, Any]):
-        """Send email notification using SES"""
-        try:
+def process_standard_order(detail):
+    """Standard order processing"""
+    print(f"Standard order: {detail['orderId']}")
+
             # In production, use SES templates
             self.ses.send_email(
                 Source='noreply@ecommerce.com',
@@ -1656,374 +988,67 @@ def lambda_handler(event, context):
 
                 <h3>Advanced Error Handling Implementation</h3>
 
-                <pre><code >import json
+                <h3>Error Handling and Retries</h3>
+
+                <pre><code>import json
 import boto3
-import hashlib
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
-import uuid
 
 class ErrorHandler:
     def __init__(self):
-        self.dynamodb = boto3.resource('dynamodb')
         self.sqs = boto3.client('sqs')
-        self.eventbridge = boto3.client('events')
-        self.error_table = self.dynamodb.Table('ProcessingErrors')
-        self.idempotency_table = self.dynamodb.Table('IdempotencyKeys')
+        self.dynamodb = boto3.resource('dynamodb')
     
-    def ensure_idempotency(self, event: Dict[str, Any], operation: str) -> bool:
-        """Ensure idempotent processing of events"""
-        
-        # Create idempotency key
-        event_content = json.dumps(event, sort_keys=True)
-        idempotency_key = hashlib.md5(
-            f"{operation}:{event_content}".encode()
-        ).hexdigest()
-        
-        try:
-            # Try to insert idempotency key
-            self.idempotency_table.put_item(
-                Item={
-                    'idempotencyKey': idempotency_key,
-                    'operation': operation,
-                    'timestamp': int(datetime.utcnow().timestamp()),
-                    'ttl': int((datetime.utcnow() + timedelta(hours=24)).timestamp())
-                },
-                ConditionExpression='attribute_not_exists(idempotencyKey)'
-            )
-            return True  # First time processing
-            
-        except self.dynamodb.meta.client.exceptions.ConditionalCheckFailedException:
-            return False  # Already processed
-    
-    def handle_processing_error(self, event: Dict[str, Any], error: Exception, 
-                              retry_count: int = 0) -> Dict[str, Any]:
-        """Handle processing errors with intelligent retry logic"""
-        
-        error_id = str(uuid.uuid4())
-        error_type = type(error).__name__
-        
-        # Log error for analysis
-        error_record = {
-            'errorId': error_id,
-            'eventId': event.get('id', 'unknown'),
-            'errorType': error_type,
-            'errorMessage': str(error),
-            'retryCount': retry_count,
-            'timestamp': int(datetime.utcnow().timestamp()),
-            'event': event,
-            'ttl': int((datetime.utcnow() + timedelta(days=30)).timestamp())
-        }
-        
-        self.error_table.put_item(Item=error_record)
-        
-        # Determine retry strategy
-        should_retry = self.should_retry_error(error, retry_count)
-        
-        if should_retry:
-            delay_seconds = self.calculate_retry_delay(retry_count)
-            return {
-                'action': 'retry',
-                'delay_seconds': delay_seconds,
-                'retry_count': retry_count + 1,
-                'error_id': error_id
-            }
-        else:
-            # Send to dead letter queue
-            return {
-                'action': 'dlq',
-                'reason': f"Max retries exceeded or non-retryable error: {error_type}",
-                'error_id': error_id
-            }
-    
-    def should_retry_error(self, error: Exception, retry_count: int) -> bool:
-        """Determine if error should be retried"""
-        
-        # Maximum retry attempts
-        if retry_count >= 5:
-            return False
-        
-        error_type = type(error).__name__
-        
-        # Non-retryable errors
-        non_retryable_errors = [
-            'ValidationError',
-            'InvalidDataError',
-            'AuthenticationError',
-            'PermissionError'
-        ]
-        
-        if error_type in non_retryable_errors:
-            return False
-        
-        # Retryable errors
-        retryable_errors = [
-            'ConnectionError',
-            'TimeoutError',
-            'ServiceUnavailableError',
-            'ThrottlingError'
-        ]
-        
-        return error_type in retryable_errors or 'timeout' in str(error).lower()
-    
-    def calculate_retry_delay(self, retry_count: int) -> int:
-        """Calculate exponential backoff delay"""
-        base_delay = 2
-        max_delay = 300  # 5 minutes
-        
-        delay = min(base_delay ** retry_count, max_delay)
-        return delay
-    
-    def send_to_dlq(self, event: Dict[str, Any], error_info: Dict[str, Any], 
-                   dlq_url: str):
-        """Send failed event to dead letter queue"""
-        
-        dlq_message = {
-            'originalEvent': event,
-            'errorInfo': error_info,
-            'timestamp': datetime.utcnow().isoformat(),
-            'requiresManualReview': True
-        }
-        
-        try:
-            self.sqs.send_message(
-                QueueUrl=dlq_url,
-                MessageBody=json.dumps(dlq_message),
-                MessageAttributes={
-                    'ErrorType': {
-                        'StringValue': error_info.get('error_id', 'unknown'),
-                        'DataType': 'String'
-                    },
-                    'RetryCount': {
-                        'StringValue': str(error_info.get('retry_count', 0)),
-                        'DataType': 'Number'
-                    }
-                }
-            )
-            print(f"Sent event to DLQ: {error_info.get('error_id')}")
-            
-        except Exception as e:
-            print(f"Failed to send to DLQ: {str(e)}")
-    
-    def create_retry_event(self, event: Dict[str, Any], retry_info: Dict[str, Any]):
-        """Create retry event with delay"""
-        
-        retry_event = {
-            'Source': 'ecommerce.retry',
-            'DetailType': 'Event Retry',
-            'Detail': json.dumps({
-                'originalEvent': event,
-                'retryCount': retry_info['retry_count'],
-                'errorId': retry_info['error_id'],
-                'delaySeconds': retry_info['delay_seconds']
-            }),
-            'Time': datetime.utcnow()
-        }
-        
-        # Schedule retry using EventBridge with delay
-        self.eventbridge.put_events(Entries=[retry_event])
-
-class CircuitBreaker:
-    def __init__(self, failure_threshold: int = 5, timeout: int = 60):
-        self.failure_threshold = failure_threshold
-        self.timeout = timeout
-        self.failure_count = 0
-        self.last_failure_time = None
-        self.state = 'CLOSED'  # CLOSED, OPEN, HALF_OPEN
-    
-    def call(self, func, *args, **kwargs):
-        """Execute function with circuit breaker protection"""
-        
-        if self.state == 'OPEN':
-            if self._should_attempt_reset():
-                self.state = 'HALF_OPEN'
-            else:
-                raise Exception("Circuit breaker is OPEN")
-        
-        try:
-            result = func(*args, **kwargs)
-            self._on_success()
-            return result
-            
-        except Exception as e:
-            self._on_failure()
-            raise e
-    
-    def _on_success(self):
-        """Handle successful execution"""
-        self.failure_count = 0
-        self.state = 'CLOSED'
-    
-    def _on_failure(self):
-        """Handle failed execution"""
-        self.failure_count += 1
-        self.last_failure_time = datetime.utcnow()
-        
-        if self.failure_count >= self.failure_threshold:
-            self.state = 'OPEN'
-    
-    def _should_attempt_reset(self) -> bool:
-        """Check if circuit breaker should attempt reset"""
-        if self.last_failure_time is None:
-            return True
-        
-        return (datetime.utcnow() - self.last_failure_time).seconds >= self.timeout
-
-# Enhanced Lambda function with error handling
-error_handler = ErrorHandler()
-circuit_breaker = CircuitBreaker()
-
-def lambda_handler(event, context):
-    """Lambda with comprehensive error handling"""
-    
-    processing_results = []
-    
-    for record in event.get('Records', []):
-        try:
-            # Parse event
-            event_data = json.loads(record['body'])
-            
-            # Ensure idempotency
-            if not error_handler.ensure_idempotency(event_data, 'process_event'):
-                print(f"Event already processed: {event_data.get('id', 'unknown')}")
-                continue
-            
-            # Process with circuit breaker
-            result = circuit_breaker.call(process_event_with_retry, event_data)
-            processing_results.append({'success': True, 'event_id': event_data.get('id')})
-            
-        except Exception as e:
-            # Handle error
-            retry_count = int(record.get('messageAttributes', {}).get('RetryCount', {}).get('stringValue', '0'))
-            
-            error_response = error_handler.handle_processing_error(
-                event_data, e, retry_count
-            )
-            
-            if error_response['action'] == 'retry':
-                error_handler.create_retry_event(event_data, error_response)
-            elif error_response['action'] == 'dlq':
-                dlq_url = os.environ.get('DLQ_URL')
-                if dlq_url:
-                    error_handler.send_to_dlq(event_data, error_response, dlq_url)
-            
-            processing_results.append({
-                'success': False, 
-                'event_id': event_data.get('id'),
-                'error_id': error_response['error_id']
-            })
-    
-    return {
-        'statusCode': 200,
-        'body': json.dumps({
-            'results': processing_results,
-            'circuit_breaker_state': circuit_breaker.state
+    def handle_error(self, event, error, retry_count=0):
+        """Handle processing errors with retry logic"""
+        # Log error
+        error_table = self.dynamodb.Table('ProcessingErrors')
+        error_table.put_item(Item={
+            'eventId': event.get('id'),
+            'error': str(error),
+            'retryCount': retry_count
         })
-    }
+        
+        # Retry with exponential backoff
+        if retry_count < 3:
+            delay = 2 ** retry_count
+            return {'action': 'retry', 'delay': delay}
+        else:
+            return {'action': 'dlq'}  # Send to dead letter queue
 
-def process_event_with_retry(event_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Process event with potential for failure"""
-    # Your actual processing logic here
-    # This function should raise exceptions for failures
-    pass
 </code></pre>
 
                 <h2>Performance Monitoring and Optimization</h2>
 
                 <h3>Event-Driven Performance Metrics</h3>
 
-                <pre><code >import boto3
-import json
+                <pre><code>import boto3
 import time
-from datetime import datetime
-from typing import Dict, List
 
 class EventMetricsCollector:
     def __init__(self):
         self.cloudwatch = boto3.client('cloudwatch')
-        self.namespace = 'EcommerceEventDriven'
     
-    def track_event_processing(self, event_source: str, event_type: str, 
-                             processing_time: float, success: bool):
+    def track_event(self, event_source, event_type, processing_time, success):
         """Track event processing metrics"""
-        
-        metrics = [
-            {
-                'MetricName': 'EventProcessingTime',
+        self.cloudwatch.put_metric_data(
+            Namespace='EventDriven',
+            MetricData=[{
+                'MetricName': 'ProcessingTime',
                 'Value': processing_time,
                 'Unit': 'Milliseconds',
                 'Dimensions': [
-                    {'Name': 'EventSource', 'Value': event_source},
-                    {'Name': 'EventType', 'Value': event_type}
+                    {'Name': 'Source', 'Value': event_source},
+                    {'Name': 'Type', 'Value': event_type}
                 ]
-            },
-            {
-                'MetricName': 'EventsProcessed',
-                'Value': 1,
-                'Unit': 'Count',
-                'Dimensions': [
-                    {'Name': 'EventSource', 'Value': event_source},
-                    {'Name': 'EventType', 'Value': event_type},
-                    {'Name': 'Status', 'Value': 'success' if success else 'failure'}
-                ]
-            }
-        ]
-        
-        if not success:
-            metrics.append({
-                'MetricName': 'ProcessingErrors',
-                'Value': 1,
-                'Unit': 'Count',
-                'Dimensions': [
-                    {'Name': 'EventSource', 'Value': event_source},
-                    {'Name': 'EventType', 'Value': event_type}
-                ]
-            })
-        
-        self.cloudwatch.put_metric_data(
-            Namespace=self.namespace,
-            MetricData=metrics
-        )
-    
-    def track_queue_metrics(self, queue_name: str, messages_processed: int, 
-                          avg_processing_time: float):
-        """Track queue-specific metrics"""
-        
-        metrics = [
-            {
-                'MetricName': 'QueueThroughput',
-                'Value': messages_processed,
-                'Unit': 'Count/Second',
-                'Dimensions': [{'Name': 'QueueName', 'Value': queue_name}]
-            },
-            {
-                'MetricName': 'AvgQueueProcessingTime',
-                'Value': avg_processing_time,
-                'Unit': 'Milliseconds',
-                'Dimensions': [{'Name': 'QueueName', 'Value': queue_name}]
-            }
-        ]
-        
-        self.cloudwatch.put_metric_data(
-            Namespace=self.namespace,
-            MetricData=metrics
+            }]
         )
 
-# Usage in processing functions
-metrics_collector = EventMetricsCollector()
+# Usage
+metrics = EventMetricsCollector()
+start = time.time()
+# ... process event ...
+metrics.track_event('ecommerce.orders', 'Order Created', time.time() - start, True)
 
-def process_with_metrics(event_data: Dict, processing_func):
-    """Wrapper to add metrics to event processing"""
-    start_time = time.time()
-    success = False
-    
-    try:
-        result = processing_func(event_data)
-        success = True
-        return result
-    
-    except Exception as e:
-        print(f"Processing failed: {str(e)}")
         raise
     
     finally:
@@ -2039,7 +1064,7 @@ def process_with_metrics(event_data: Dict, processing_func):
 
                 <h2>Conclusion</h2>
 
-                <p>Event-driven architectures with EventBridge, SQS, and Lambda provide a powerful foundation for building scalable, resilient systems. The patterns demonstrated in this guide—from intelligent event routing and advanced error handling to comprehensive monitoring—enable you to create sophisticated event-driven applications that can handle complex business workflows.</p>
+                <p>Event-driven architectures with EventBridge, SQS, and Lambda provide a powerful foundation for building scalable, resilient systems. The patterns demonstrated in this guide from intelligent event routing and advanced error handling to comprehensive monitoring enable you to create sophisticated event-driven applications that can handle complex business workflows.</p>
 
                 <p>Key takeaways for successful event-driven implementation:</p>
 
