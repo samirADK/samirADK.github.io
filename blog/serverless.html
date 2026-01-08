@@ -839,12 +839,12 @@
                 <p>Before diving into the implementation, it's crucial to understand what serverless computing means and why it's the ideal approach for our OTP service.</p>
                 
                 <h3>What is Serverless?</h3>
-                <p>Serverless computing represents a cloud execution model where the cloud provider dynamically manages the allocation and provisioning of servers. Despite the name, servers still exist—but developers don't need to worry about them. The cloud provider handles infrastructure management, scaling, server maintenance, and capacity planning automatically.</p>
+                <p>Serverless computing represents a cloud execution model where the cloud provider dynamically manages the allocation and provisioning of servers. Despite the name, servers still exist but developers don't need to worry about them. The cloud provider handles infrastructure management, scaling, server maintenance, and capacity planning automatically.</p>
                 
                 <h3>Key Benefits of Serverless</h3>
                 <ul>
                     <li><strong>Zero Server Management:</strong> No need to provision, maintain, or scale servers manually. AWS handles all infrastructure concerns.</li>
-                    <li><strong>Automatic Scaling:</strong> Your application scales automatically based on demand—from zero to thousands of requests per second.</li>
+                    <li><strong>Automatic Scaling:</strong> Your application scales automatically based on demand from zero to thousands of requests per second.</li>
                     <li><strong>Cost Efficiency:</strong> You pay only for actual compute time consumed. When your code isn't running, you're not charged.</li>
                     <li><strong>Built-in High Availability:</strong> AWS distributes your functions across multiple availability zones automatically.</li>
                     <li><strong>Faster Time to Market:</strong> Focus on business logic instead of infrastructure, accelerating development cycles.</li>
@@ -860,7 +860,7 @@
                     <li><strong>Stateless Operations:</strong> OTP generation and verification are stateless operations, which align perfectly with Lambda's execution model.</li>
                 </ul>
                 
-                <p>In traditional server-based architectures, you'd need to maintain always-on servers that consume resources even during idle periods. With our serverless approach, AWS Lambda functions activate only when requests arrive, execute the necessary logic, and then terminate—optimizing both cost and resource utilization.</p>
+                <p>In traditional server-based architectures, you'd need to maintain always-on servers that consume resources even during idle periods. With our serverless approach, AWS Lambda functions activate only when requests arrive, execute the necessary logic, and then terminate optimizing both cost and resource utilization.</p>
 
                 <h2>Architecture Overview</h2>
                 <p>We will use the following AWS services:</p>
