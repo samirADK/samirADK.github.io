@@ -838,44 +838,913 @@
                     <li><strong>CloudWatch:</strong> Monitoring and logging</li>
                 </ul>
 
-                <h2>Setting Up Your First Serverless API</h2>
+                <h2>Quick Start: Minimal Working Example</h2>
 
-                <h3>1. Create the Lambda Function</h3>
+                <div class="highlight">
+                    <p><strong>⚡ New to serverless?</strong> Start here with this 5-minute minimal working example. You'll have a functioning API before diving into advanced features.</p>
+                </div>
 
-                <p>Here's a simple Lambda function that handles basic CRUD operations:</p>
+                <p>Let's build a simple "Hello World" API that you can deploy and test in minutes. This example demonstrates the core concepts without overwhelming complexity.</p>
 
-                <pre><code>def lambda_handler(event, context):
-    http_method = event['httpMethod']
+                <h3>Step 1: Create Lambda Function (app.py)</h3>
+                <pre><code>import json
+
+def lambda_handler(event, context):
+    """Simple Hello World API endpoint"""
     
-    if http_method == 'GET':
-        return get_users()
-    elif http_method == 'POST':
-        return create_user(event)
+    # Extract HTTP method and path
+    method = event.get('httpMethod', 'GET')
+    path = event.get('path', '/')
     
-    return {'statusCode': 404, 'body': 'Not Found'}
+    # Simple routing
+    if method == 'GET' and path == '/hello':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'message': 'Hello from serverless!',
+                'timestamp': context.request_id
+            })
+        }
+    
+    # Default 404 response
+    return {
+        'statusCode': 404,
+        'body': json.dumps({'error': 'Not Found'})
+    }</code></pre>
+
+                <h3>Step 2: Deploy with AWS SAM (template.yaml)</h3>
+                <pre><code>AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Minimal Serverless API Example
+
+Resources:
+  # Lambda function
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      MemorySize: 128
+      Timeout: 10
+      Events:
+        HelloWorldApi:
+          Type: Api
+          Properties:
+            Path: /hello
+            Method: GET
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello"</code></pre>
+
+                <h3>Step 3: Deploy</h3>
+                <pre><code># Initialize SAM (first time only)
+sam init
+
+# Build and deploy
+sam build
+sam deploy --guided
+
+# Test your API
+curl https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/Prod/hello</code></pre>
+
+                <h3>Expected Response</h3>
+                <pre><code>{
+  "message": "Hello from serverless!",
+  "timestamp": "abc123-request-id"
+}</code></pre>
+
+                <p>✅ <strong>You now have a working serverless API!</strong> Let's expand this into a production-ready application.</p>
+
+                <h2>Complete End-to-End Working Example: User Management API</h2>
+
+                <p>Now let's build a full CRUD API with DynamoDB integration, proper error handling, and security. This complete example is production-ready and demonstrates real-world patterns.</p>
+
+                <h3>Project Structure</h3>
+                <pre><code>user-api/
+├── app.py                  # Lambda function code
+├── requirements.txt        # Python dependencies
+├── template.yaml           # SAM template
+└── terraform/
+    ├── main.tf            # Terraform configuration
+    ├── variables.tf
+    └── outputs.tf</code></pre>
+
+                <h3>Complete Lambda Function (app.py)</h3>
+                <pre><code>import json
+import boto3
+import uuid
+import os
+from datetime import datetime
+from boto3.dynamodb.conditions import Key
+
+# Initialize DynamoDB
+dynamodb = boto3.resource('dynamodb')
+table_name = os.environ.get('TABLE_NAME', 'Users')
+table = dynamodb.Table(table_name)
+
+def lambda_handler(event, context):
+    """Main handler routing requests to appropriate functions"""
+    
+    try:
+        http_method = event['httpMethod']
+        path = event['path']
+        
+        # Route based on HTTP method and path
+        if http_method == 'GET' and path == '/users':
+            return get_all_users()
+        
+        elif http_method == 'GET' and path.startswith('/users/'):
+            user_id = path.split('/')[-1]
+            return get_user(user_id)
+        
+        elif http_method == 'POST' and path == '/users':
+            return create_user(event)
+        
+        elif http_method == 'PUT' and path.startswith('/users/'):
+            user_id = path.split('/')[-1]
+            return update_user(user_id, event)
+        
+        elif http_method == 'DELETE' and path.startswith('/users/'):
+            user_id = path.split('/')[-1]
+            return delete_user(user_id)
+        
+        else:
+            return response(404, {'error': 'Route not found'})
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return response(500, {'error': 'Internal server error', 'details': str(e)})
+
+def get_all_users():
+    """Retrieve all users from DynamoDB"""
+    try:
+        result = table.scan(Limit=100)
+        
+        return response(200, {
+            'users': result.get('Items', []),
+            'count': len(result.get('Items', []))
+        })
+    
+    except Exception as e:
+        return response(500, {'error': 'Failed to retrieve users', 'details': str(e)})
+
+def get_user(user_id):
+    """Get a single user by ID"""
+    try:
+        result = table.get_item(Key={'userId': user_id})
+        
+        if 'Item' not in result:
+            return response(404, {'error': 'User not found'})
+        
+        return response(200, result['Item'])
+    
+    except Exception as e:
+        return response(500, {'error': 'Failed to retrieve user', 'details': str(e)})
 
 def create_user(event):
-    body = json.loads(event['body'])
-    # Save to DynamoDB
-    table.put_item(Item={'userId': str(uuid.uuid4()), 'name': body['name']})
-    return {'statusCode': 201, 'body': 'User created'}
-</code></pre>
+    """Create a new user"""
+    try:
+        # Parse request body
+        body = json.loads(event.get('body', '{}'))
+        
+        # Validate required fields
+        if not body.get('name') or not body.get('email'):
+            return response(400, {'error': 'Name and email are required'})
+        
+        # Create user object
+        user = {
+            'userId': str(uuid.uuid4()),
+            'name': body['name'],
+            'email': body['email'],
+            'createdAt': datetime.utcnow().isoformat(),
+            'updatedAt': datetime.utcnow().isoformat()
+        }
+        
+        # Optional fields
+        if body.get('phone'):
+            user['phone'] = body['phone']
+        
+        # Save to DynamoDB
+        table.put_item(Item=user)
+        
+        return response(201, {
+            'message': 'User created successfully',
+            'user': user
+        })
+    
+    except json.JSONDecodeError:
+        return response(400, {'error': 'Invalid JSON in request body'})
+    
+    except Exception as e:
+        return response(500, {'error': 'Failed to create user', 'details': str(e)})
 
-                <p>The Lambda function routes requests based on HTTP methods and handles business logic like validation and database operations.</p>
+def update_user(user_id, event):
+    """Update existing user"""
+    try:
+        # Check if user exists
+        existing = table.get_item(Key={'userId': user_id})
+        if 'Item' not in existing:
+            return response(404, {'error': 'User not found'})
+        
+        # Parse update data
+        body = json.loads(event.get('body', '{}'))
+        
+        # Build update expression
+        update_expr = "SET updatedAt = :updated"
+        expr_values = {':updated': datetime.utcnow().isoformat()}
+        
+        if body.get('name'):
+            update_expr += ", #n = :name"
+            expr_values[':name'] = body['name']
+        
+        if body.get('email'):
+            update_expr += ", email = :email"
+            expr_values[':email'] = body['email']
+        
+        if body.get('phone'):
+            update_expr += ", phone = :phone"
+            expr_values[':phone'] = body['phone']
+        
+        # Perform update
+        result = table.update_item(
+            Key={'userId': user_id},
+            UpdateExpression=update_expr,
+            ExpressionAttributeNames={'#n': 'name'} if body.get('name') else None,
+            ExpressionAttributeValues=expr_values,
+            ReturnValues='ALL_NEW'
+        )
+        
+        return response(200, {
+            'message': 'User updated successfully',
+            'user': result['Attributes']
+        })
+    
+    except json.JSONDecodeError:
+        return response(400, {'error': 'Invalid JSON in request body'})
+    
+    except Exception as e:
+        return response(500, {'error': 'Failed to update user', 'details': str(e)})
 
-                <h3>2. Create DynamoDB Table</h3>
+def delete_user(user_id):
+    """Delete a user"""
+    try:
+        # Check if user exists
+        existing = table.get_item(Key={'userId': user_id})
+        if 'Item' not in existing:
+            return response(404, {'error': 'User not found'})
+        
+        # Delete the user
+        table.delete_item(Key={'userId': user_id})
+        
+        return response(200, {'message': 'User deleted successfully'})
+    
+    except Exception as e:
+        return response(500, {'error': 'Failed to delete user', 'details': str(e)})
 
-                <p>You can quickly create a DynamoDB table using the AWS CLI or Console. The key is choosing the right partition key (in our case, <code>userId</code>) for efficient data access.</p>
+def response(status_code, body):
+    """Helper function to format API responses"""
+    return {
+        'statusCode': status_code,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+        },
+        'body': json.dumps(body)
+    }</code></pre>
 
-                <h3>3. Configure API Gateway</h3>
+                <h3>Complete AWS SAM Template (template.yaml)</h3>
+                <pre><code>AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Production-Ready User Management API
 
-                <p>API Gateway acts as the front door to your Lambda functions. You can set it up through the AWS Console or use Infrastructure as Code tools like SAM or Terraform. Key configurations include:</p>
-                <ul>
-                    <li>Define your API endpoints (GET, POST, PUT, DELETE)</li>
-                    <li>Set up CORS for web applications</li>
-                    <li>Configure rate limiting and throttling</li>
-                    <li>Enable API keys for access control</li>
-                </ul>
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.11
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref UsersTable
+    Tracing: Active  # Enable X-Ray
+
+Resources:
+  # DynamoDB Table
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: Production
+
+  # Lambda Function
+  UserApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: UserManagementAPI
+      CodeUri: .
+      Handler: app.lambda_handler
+      Description: User Management CRUD API
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        # GET /users - List all users
+        GetUsers:
+          Type: Api
+          Properties:
+            Path: /users
+            Method: GET
+            RestApiId: !Ref UserApi
+        
+        # GET /users/{id} - Get specific user
+        GetUser:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: GET
+            RestApiId: !Ref UserApi
+        
+        # POST /users - Create user
+        CreateUser:
+          Type: Api
+          Properties:
+            Path: /users
+            Method: POST
+            RestApiId: !Ref UserApi
+        
+        # PUT /users/{id} - Update user
+        UpdateUser:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: PUT
+            RestApiId: !Ref UserApi
+        
+        # DELETE /users/{id} - Delete user
+        DeleteUser:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: DELETE
+            RestApiId: !Ref UserApi
+
+  # API Gateway
+  UserApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      TracingEnabled: true
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      ThrottleSettings:
+        BurstLimit: 100
+        RateLimit: 50
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+          MetricsEnabled: true
+
+  # CloudWatch Log Group
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${UserApiFunction}'
+      RetentionInDays: 30
+
+  # CloudWatch Alarm for Errors
+  ApiErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: UserApiHighErrorRate
+      AlarmDescription: Alert when API error rate exceeds threshold
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref UserApiFunction
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${UserApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  
+  UsersTableName:
+    Description: "DynamoDB table name"
+    Value: !Ref UsersTable
+  
+  FunctionArn:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt UserApiFunction.Arn</code></pre>
+
+                <h3>Complete Terraform Configuration</h3>
+
+                <h4>terraform/main.tf</h4>
+                <pre><code>terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# DynamoDB Table
+resource "aws_dynamodb_table" "users" {
+  name           = "Users"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "userId"
+
+  attribute {
+    name = "userId"
+    type = "S"
+  }
+
+  stream_enabled   = true
+  stream_view_type = "NEW_AND_OLD_IMAGES"
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  tags = {
+    Name        = "Users Table"
+    Environment = "Production"
+  }
+}
+
+# Lambda Execution Role
+resource "aws_iam_role" "lambda_role" {
+  name = "user-api-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "lambda.amazonaws.com"
+      }
+    }]
+  })
+}
+
+# Lambda Policy for DynamoDB Access
+resource "aws_iam_role_policy" "lambda_policy" {
+  name = "user-api-lambda-policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Scan",
+          "dynamodb:Query"
+        ]
+        Resource = aws_dynamodb_table.users.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Package Lambda function
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = "${path.module}/../app.py"
+  output_path = "${path.module}/lambda_function.zip"
+}
+
+# Lambda Function
+resource "aws_lambda_function" "user_api" {
+  filename         = data.archive_file.lambda_zip.output_path
+  function_name    = "UserManagementAPI"
+  role            = aws_iam_role.lambda_role.arn
+  handler         = "app.lambda_handler"
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  runtime         = "python3.11"
+  memory_size     = 256
+  timeout         = 30
+
+  environment {
+    variables = {
+      TABLE_NAME = aws_dynamodb_table.users.name
+    }
+  }
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  tags = {
+    Name = "User API Lambda"
+  }
+}
+
+# CloudWatch Log Group
+resource "aws_cloudwatch_log_group" "api_logs" {
+  name              = "/aws/lambda/${aws_lambda_function.user_api.function_name}"
+  retention_in_days = 30
+}
+
+# API Gateway REST API
+resource "aws_api_gateway_rest_api" "user_api" {
+  name        = "UserManagementAPI"
+  description = "User Management REST API"
+
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+# API Gateway Resource - /users
+resource "aws_api_gateway_resource" "users" {
+  rest_api_id = aws_api_gateway_rest_api.user_api.id
+  parent_id   = aws_api_gateway_rest_api.user_api.root_resource_id
+  path_part   = "users"
+}
+
+# API Gateway Resource - /users/{id}
+resource "aws_api_gateway_resource" "user_id" {
+  rest_api_id = aws_api_gateway_rest_api.user_api.id
+  parent_id   = aws_api_gateway_resource.users.id
+  path_part   = "{id}"
+}
+
+# Methods for /users
+resource "aws_api_gateway_method" "get_users" {
+  rest_api_id   = aws_api_gateway_rest_api.user_api.id
+  resource_id   = aws_api_gateway_resource.users.id
+  http_method   = "GET"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_method" "post_user" {
+  rest_api_id   = aws_api_gateway_rest_api.user_api.id
+  resource_id   = aws_api_gateway_resource.users.id
+  http_method   = "POST"
+  authorization = "NONE"
+}
+
+# Methods for /users/{id}
+resource "aws_api_gateway_method" "get_user" {
+  rest_api_id   = aws_api_gateway_rest_api.user_api.id
+  resource_id   = aws_api_gateway_resource.user_id.id
+  http_method   = "GET"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_method" "put_user" {
+  rest_api_id   = aws_api_gateway_rest_api.user_api.id
+  resource_id   = aws_api_gateway_resource.user_id.id
+  http_method   = "PUT"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_method" "delete_user" {
+  rest_api_id   = aws_api_gateway_rest_api.user_api.id
+  resource_id   = aws_api_gateway_resource.user_id.id
+  http_method   = "DELETE"
+  authorization = "NONE"
+}
+
+# Lambda Integrations
+resource "aws_api_gateway_integration" "get_users_integration" {
+  rest_api_id = aws_api_gateway_rest_api.user_api.id
+  resource_id = aws_api_gateway_resource.users.id
+  http_method = aws_api_gateway_method.get_users.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.user_api.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "post_user_integration" {
+  rest_api_id = aws_api_gateway_rest_api.user_api.id
+  resource_id = aws_api_gateway_resource.users.id
+  http_method = aws_api_gateway_method.post_user.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.user_api.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "get_user_integration" {
+  rest_api_id = aws_api_gateway_rest_api.user_api.id
+  resource_id = aws_api_gateway_resource.user_id.id
+  http_method = aws_api_gateway_method.get_user.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.user_api.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "put_user_integration" {
+  rest_api_id = aws_api_gateway_rest_api.user_api.id
+  resource_id = aws_api_gateway_resource.user_id.id
+  http_method = aws_api_gateway_method.put_user.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.user_api.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "delete_user_integration" {
+  rest_api_id = aws_api_gateway_rest_api.user_api.id
+  resource_id = aws_api_gateway_resource.user_id.id
+  http_method = aws_api_gateway_method.delete_user.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.user_api.invoke_arn
+}
+
+# Lambda Permissions for API Gateway
+resource "aws_lambda_permission" "api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.user_api.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.user_api.execution_arn}/*/*"
+}
+
+# API Gateway Deployment
+resource "aws_api_gateway_deployment" "api_deployment" {
+  depends_on = [
+    aws_api_gateway_integration.get_users_integration,
+    aws_api_gateway_integration.post_user_integration,
+    aws_api_gateway_integration.get_user_integration,
+    aws_api_gateway_integration.put_user_integration,
+    aws_api_gateway_integration.delete_user_integration
+  ]
+
+  rest_api_id = aws_api_gateway_rest_api.user_api.id
+  stage_name  = "prod"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# API Gateway Stage Settings
+resource "aws_api_gateway_stage" "prod" {
+  deployment_id = aws_api_gateway_deployment.api_deployment.id
+  rest_api_id   = aws_api_gateway_rest_api.user_api.id
+  stage_name    = "prod"
+
+  xray_tracing_enabled = true
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway_logs.arn
+    format = jsonencode({
+      requestId      = "$context.requestId"
+      ip             = "$context.identity.sourceIp"
+      caller         = "$context.identity.caller"
+      user           = "$context.identity.user"
+      requestTime    = "$context.requestTime"
+      httpMethod     = "$context.httpMethod"
+      resourcePath   = "$context.resourcePath"
+      status         = "$context.status"
+      protocol       = "$context.protocol"
+      responseLength = "$context.responseLength"
+    })
+  }
+}
+
+# CloudWatch Log Group for API Gateway
+resource "aws_cloudwatch_log_group" "api_gateway_logs" {
+  name              = "/aws/apigateway/${aws_api_gateway_rest_api.user_api.name}"
+  retention_in_days = 30
+}
+
+# CloudWatch Alarm
+resource "aws_cloudwatch_metric_alarm" "api_errors" {
+  alarm_name          = "UserApiHighErrorRate"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "1"
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = "300"
+  statistic           = "Sum"
+  threshold           = "10"
+  alarm_description   = "Alert when API error rate exceeds threshold"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.user_api.function_name
+  }
+}</code></pre>
+
+                <h4>terraform/variables.tf</h4>
+                <pre><code>variable "aws_region" {
+  description = "AWS region for resources"
+  type        = string
+  default     = "us-east-1"
+}</code></pre>
+
+                <h4>terraform/outputs.tf</h4>
+                <pre><code>output "api_endpoint" {
+  description = "API Gateway endpoint URL"
+  value       = "${aws_api_gateway_stage.prod.invoke_url}/users"
+}
+
+output "dynamodb_table_name" {
+  description = "DynamoDB table name"
+  value       = aws_dynamodb_table.users.name
+}
+
+output "lambda_function_name" {
+  description = "Lambda function name"
+  value       = aws_lambda_function.user_api.function_name
+}</code></pre>
+
+                <h3>Deployment Instructions</h3>
+
+                <h4>Option 1: Deploy with AWS SAM</h4>
+                <pre><code># Install dependencies
+pip install boto3 -t .
+
+# Build and deploy
+sam build
+sam deploy --guided
+
+# Follow prompts:
+# - Stack Name: user-management-api
+# - AWS Region: us-east-1
+# - Confirm changes: Y
+# - Allow SAM CLI IAM role creation: Y
+# - Save arguments to config file: Y</code></pre>
+
+                <h4>Option 2: Deploy with Terraform</h4>
+                <pre><code># Navigate to terraform directory
+cd terraform
+
+# Initialize Terraform
+terraform init
+
+# Review planned changes
+terraform plan
+
+# Apply configuration
+terraform apply
+
+# Type 'yes' to confirm</code></pre>
+
+                <h3>Testing Your API</h3>
+
+                <h4>1. Create a User</h4>
+                <pre><code>curl -X POST https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/Prod/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "+1234567890"
+  }'
+
+# Response:
+{
+  "message": "User created successfully",
+  "user": {
+    "userId": "abc-123-def",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "+1234567890",
+    "createdAt": "2026-01-08T10:30:00.000Z",
+    "updatedAt": "2026-01-08T10:30:00.000Z"
+  }
+}</code></pre>
+
+                <h4>2. Get All Users</h4>
+                <pre><code>curl https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/Prod/users
+
+# Response:
+{
+  "users": [
+    {
+      "userId": "abc-123-def",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "+1234567890",
+      "createdAt": "2026-01-08T10:30:00.000Z"
+    }
+  ],
+  "count": 1
+}</code></pre>
+
+                <h4>3. Get Specific User</h4>
+                <pre><code>curl https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/Prod/users/abc-123-def
+
+# Response:
+{
+  "userId": "abc-123-def",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "phone": "+1234567890",
+  "createdAt": "2026-01-08T10:30:00.000Z",
+  "updatedAt": "2026-01-08T10:30:00.000Z"
+}</code></pre>
+
+                <h4>4. Update User</h4>
+                <pre><code>curl -X PUT https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/Prod/users/abc-123-def \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Jane Doe",
+    "phone": "+9876543210"
+  }'
+
+# Response:
+{
+  "message": "User updated successfully",
+  "user": {
+    "userId": "abc-123-def",
+    "name": "Jane Doe",
+    "email": "john@example.com",
+    "phone": "+9876543210",
+    "updatedAt": "2026-01-08T11:00:00.000Z"
+  }
+}</code></pre>
+
+                <h4>5. Delete User</h4>
+                <pre><code>curl -X DELETE https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/Prod/users/abc-123-def
+
+# Response:
+{
+  "message": "User deleted successfully"
+}</code></pre>
+
+                <h3>Testing with Postman</h3>
+
+                <ol>
+                    <li>Open Postman and create a new collection named "User Management API"</li>
+                    <li>Add your API endpoint as a variable: <code>{{baseUrl}} = https://YOUR-API-ID.execute-api.us-east-1.amazonaws.com/Prod</code></li>
+                    <li>Create requests for each endpoint:
+                        <ul>
+                            <li>GET <code>{{baseUrl}}/users</code></li>
+                            <li>POST <code>{{baseUrl}}/users</code> with JSON body</li>
+                            <li>GET <code>{{baseUrl}}/users/:userId</code></li>
+                            <li>PUT <code>{{baseUrl}}/users/:userId</code> with JSON body</li>
+                            <li>DELETE <code>{{baseUrl}}/users/:userId</code></li>
+                        </ul>
+                    </li>
+                    <li>Save userId from POST response and use in subsequent requests</li>
+                    <li>Run collection to test all endpoints in sequence</li>
+                </ol>
+
+                <p>✅ <strong>You now have a complete, production-ready serverless API!</strong> This example includes all CRUD operations, proper error handling, DynamoDB integration, and can be deployed with either SAM or Terraform.</p>
 
                 <h2>Advanced Security Implementation</h2>
 
