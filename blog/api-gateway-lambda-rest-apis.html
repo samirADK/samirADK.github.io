@@ -959,6 +959,543 @@ def create_user(event):
                     <li><strong>Optimize cold starts:</strong> Use provisioned concurrency only where needed</li>
                 </ul>
 
+                <h2>Advanced Best Practices for Production APIs</h2>
+
+                <p>Beyond the fundamentals, these advanced considerations will help you build truly production-grade serverless APIs that are secure, performant, and cost-optimized.</p>
+
+                <h3>HTTP APIs vs REST APIs: Making the Right Choice</h3>
+
+                <p>AWS API Gateway offers two distinct API types, and choosing the right one significantly impacts your costs, performance, and available features:</p>
+
+                <h4>HTTP APIs (API Gateway v2) - Recommended for Most Use Cases</h4>
+                <p>HTTP APIs are the newer, streamlined option designed for modern serverless applications:</p>
+                <ul>
+                    <li><strong>70% Lower Cost:</strong> HTTP APIs cost $1.00 per million requests compared to $3.50 for REST APIs—a substantial saving for high-traffic applications</li>
+                    <li><strong>Reduced Latency:</strong> Optimized architecture delivers 50-100ms faster response times on average</li>
+                    <li><strong>Native JWT Support:</strong> Built-in JWT authorization without custom Lambda authorizers, reducing complexity and cost</li>
+                    <li><strong>Automatic CORS Handling:</strong> Simplified CORS configuration with single-line setup</li>
+                    <li><strong>WebSocket Support:</strong> Enables real-time bidirectional communication for chat, notifications, and live updates</li>
+                </ul>
+
+                <h4>REST APIs (API Gateway v1) - For Advanced Features</h4>
+                <p>REST APIs provide comprehensive features for complex enterprise requirements:</p>
+                <ul>
+                    <li><strong>API Key Management:</strong> Built-in API keys with usage plans for client identification and rate limiting</li>
+                    <li><strong>Request Validation:</strong> Schema-based validation at the gateway level before invoking Lambda functions</li>
+                    <li><strong>Request/Response Transformation:</strong> Modify payloads using Velocity Template Language (VTL)</li>
+                    <li><strong>Edge-Optimized Endpoints:</strong> CloudFront distribution for global low-latency access</li>
+                    <li><strong>Private APIs:</strong> VPC endpoint integration for secure internal services</li>
+                    <li><strong>AWS WAF Integration:</strong> Direct Web Application Firewall protection against common exploits</li>
+                </ul>
+
+                <h4>Decision Framework</h4>
+                <pre><code>Choose HTTP APIs when:
+✓ Building new APIs from scratch
+✓ Cost optimization is a priority  
+✓ Using OAuth 2.0 or JWT authentication
+✓ Need WebSocket support for real-time features
+✓ Simple proxy integrations are sufficient
+
+Choose REST APIs when:
+✓ Require API key management and usage plans
+✓ Need request/response transformations via VTL
+✓ Must integrate AWS WAF for security
+✓ Require private API endpoints within VPC
+✓ Need detailed per-method cache control</code></pre>
+
+                <h3>Intelligent Caching Strategy</h3>
+
+                <p>Caching dramatically reduces backend load, improves response times, and lowers costs. Implement a multi-layered caching approach:</p>
+
+                <h4>API Gateway Cache Configuration</h4>
+                <p>Enable REST API caching to store responses for frequently requested data:</p>
+
+                <pre><code>Resources:
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RestApi
+      StageName: prod
+      CacheClusterEnabled: true
+      CacheClusterSize: '0.5'  # Options: 0.5GB to 237GB
+      MethodSettings:
+        - ResourcePath: /users
+          HttpMethod: GET
+          CachingEnabled: true
+          CacheTtlInSeconds: 300  # 5 minutes
+          CacheDataEncrypted: true
+          
+        - ResourcePath: /products
+          HttpMethod: GET
+          CachingEnabled: true
+          CacheTtlInSeconds: 3600  # 1 hour for stable data</code></pre>
+
+                <h4>Cache-Control Headers from Lambda</h4>
+                <p>Control client-side and CDN caching behavior with appropriate headers:</p>
+
+                <pre><code>def lambda_handler(event, context):
+    # Static/public data - aggressive caching
+    if event['path'] == '/api/public/products':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=3600, s-maxage=7200',
+                'ETag': generate_etag(data)
+            },
+            'body': json.dumps(products)
+        }
+    
+    # User-specific data - private caching only
+    if event['path'] == '/api/user/profile':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Cache-Control': 'private, max-age=300',
+                'Vary': 'Authorization'
+            },
+            'body': json.dumps(user_data)
+        }
+    
+    # Frequently changing data - minimal caching
+    if event['path'] == '/api/live/stock-prices':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Cache-Control': 'no-cache, must-revalidate, max-age=0'
+            },
+            'body': json.dumps(live_data)
+        }</code></pre>
+
+                <h4>Application-Level Caching</h4>
+                <p>Implement in-memory caching within Lambda for warm container reuse:</p>
+
+                <pre><code>import time
+from functools import lru_cache
+
+# Global cache persists across warm invocations
+cache_store = {}
+CACHE_TTL = 300  # 5 minutes
+
+def get_cached_data(key):
+    """Retrieve data with TTL-based cache"""
+    if key in cache_store:
+        data, timestamp = cache_store[key]
+        if time.time() - timestamp < CACHE_TTL:
+            print(f"Cache hit for key: {key}")
+            return data
+    
+    # Cache miss - fetch fresh data
+    data = fetch_from_database(key)
+    cache_store[key] = (data, time.time())
+    return data
+
+# LRU cache for expensive computations
+@lru_cache(maxsize=256)
+def calculate_recommendations(user_id, category):
+    """Expensive calculation cached in memory"""
+    return complex_ml_computation(user_id, category)</code></pre>
+
+                <h4>Caching Best Practices</h4>
+                <ul>
+                    <li><strong>Cache Only GET Requests:</strong> POST, PUT, DELETE should never be cached</li>
+                    <li><strong>Set Appropriate TTLs:</strong> Balance data freshness with cache efficiency (5 min for dynamic, 1 hour for stable)</li>
+                    <li><strong>Use Cache Keys Wisely:</strong> Include query parameters in cache keys for GET requests</li>
+                    <li><strong>Monitor Cache Hit Rates:</strong> Target 70%+ hit rate; adjust TTL or strategy if lower</li>
+                    <li><strong>Implement Cache Invalidation:</strong> Purge specific cache entries when data updates occur</li>
+                </ul>
+
+                <h3>Timeout and Payload Size Considerations</h3>
+
+                <p>Understanding and properly configuring limits prevents unexpected failures and ensures reliable operation:</p>
+
+                <h4>Timeout Configuration Hierarchy</h4>
+
+                <pre><code># API Gateway maximum timeout: 29 seconds (hard limit)
+# Configure Lambda timeout slightly lower for graceful handling
+
+Resources:
+  UserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.handler
+      Runtime: python3.11
+      Timeout: 28  # Leave 1 second buffer for API Gateway
+      MemorySize: 1024</code></pre>
+
+                <h4>Lambda Timeout Best Practices</h4>
+                <ul>
+                    <li><strong>API Endpoints:</strong> 3-15 seconds typical; keep synchronous operations fast</li>
+                    <li><strong>Background Processing:</strong> Use asynchronous invocation or Step Functions for long-running tasks</li>
+                    <li><strong>Database Queries:</strong> Set connection and query timeouts lower than Lambda timeout</li>
+                    <li><strong>External API Calls:</strong> Implement aggressive timeouts (3-5 seconds) with retry logic</li>
+                </ul>
+
+                <pre><code>import boto3
+from botocore.config import Config
+
+# Configure AWS SDK with proper timeouts
+config = Config(
+    connect_timeout=3,
+    read_timeout=5,
+    retries={
+        'max_attempts': 2,
+        'mode': 'standard'
+    }
+)
+
+dynamodb = boto3.resource('dynamodb', config=config)
+
+# HTTP client timeout configuration
+import requests
+
+def call_external_api(url):
+    try:
+        response = requests.get(
+            url,
+            timeout=(3, 5),  # (connect, read) timeouts
+            headers={'User-Agent': 'MyAPI/1.0'}
+        )
+        return response.json()
+    except requests.Timeout:
+        # Fallback or error handling
+        return {'error': 'External service timeout'}</code></pre>
+
+                <h4>Payload Size Limits</h4>
+
+                <p>AWS imposes specific size constraints across services:</p>
+
+                <ul>
+                    <li><strong>API Gateway Request:</strong> 10 MB maximum payload size</li>
+                    <li><strong>API Gateway Response:</strong> 10 MB maximum (6 MB practical due to base64 encoding)</li>
+                    <li><strong>Lambda Synchronous:</strong> 6 MB request and response payload</li>
+                    <li><strong>Lambda Asynchronous:</strong> 256 KB for event payload</li>
+                    <li><strong>DynamoDB Item:</strong> 400 KB maximum item size</li>
+                </ul>
+
+                <h4>Handling Large Payloads</h4>
+                <p>For files or data exceeding limits, use presigned S3 URLs:</p>
+
+                <pre><code>import boto3
+import uuid
+
+s3_client = boto3.client('s3')
+
+def upload_large_file(event, context):
+    """Generate presigned URL for direct S3 upload"""
+    
+    file_key = f"uploads/{uuid.uuid4()}.pdf"
+    
+    # Generate presigned POST URL
+    presigned_post = s3_client.generate_presigned_post(
+        Bucket='my-upload-bucket',
+        Key=file_key,
+        Fields={'acl': 'private'},
+        Conditions=[
+            {'acl': 'private'},
+            ['content-length-range', 0, 104857600]  # Max 100MB
+        ],
+        ExpiresIn=3600  # 1 hour validity
+    )
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'uploadUrl': presigned_post['url'],
+            'fields': presigned_post['fields'],
+            'fileKey': file_key
+        })
+    }
+
+def download_large_file(event, context):
+    """Generate presigned URL for direct S3 download"""
+    
+    file_key = event['pathParameters']['fileKey']
+    
+    presigned_url = s3_client.generate_presigned_url(
+        'get_object',
+        Params={
+            'Bucket': 'my-download-bucket',
+            'Key': file_key
+        },
+        ExpiresIn=3600
+    )
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps({'downloadUrl': presigned_url})
+    }</code></pre>
+
+                <h4>Request Size Validation</h4>
+                <pre><code>def lambda_handler(event, context):
+    """Validate payload size early"""
+    
+    body = event.get('body', '')
+    
+    # Check size (API Gateway base64 encodes binary data)
+    if event.get('isBase64Encoded'):
+        # Approximate original size
+        size_bytes = len(body) * 0.75
+    else:
+        size_bytes = len(body)
+    
+    if size_bytes > 5 * 1024 * 1024:  # 5 MB threshold
+        return {
+            'statusCode': 413,  # Payload Too Large
+            'body': json.dumps({
+                'error': 'Request payload exceeds 5MB limit',
+                'message': 'Use presigned S3 URL for large files'
+            })
+        }
+    
+    # Process request
+    return process_data(json.loads(body))</code></pre>
+
+                <h3>Comprehensive Security Implementation</h3>
+
+                <p>Security must be layered across multiple dimensions to protect your APIs from threats:</p>
+
+                <h4>AWS WAF Integration for DDoS and Attack Prevention</h4>
+
+                <p>AWS Web Application Firewall provides protection against common web exploits and volumetric attacks:</p>
+
+                <pre><code>Resources:
+  # Create Web ACL with managed rule groups
+  ApiWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      Rules:
+        # Rate limiting per IP
+        - Name: RateLimitRule
+          Priority: 1
+          Statement:
+            RateBasedStatement:
+              Limit: 2000  # 2000 requests per 5 minutes per IP
+              AggregateKeyType: IP
+          Action:
+            Block:
+              CustomResponse:
+                ResponseCode: 429
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimitRule
+        
+        # AWS Managed Rules - Core Rule Set
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 2
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: CommonRuleSet
+        
+        # SQL Injection protection
+        - Name: SQLiProtection
+          Priority: 3
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesSQLiRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: SQLiProtection
+        
+        # Known bad inputs protection
+        - Name: KnownBadInputsRuleSet
+          Priority: 4
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: KnownBadInputs
+        
+        # Geographic blocking (optional)
+        - Name: GeoBlockRule
+          Priority: 5
+          Statement:
+            GeoMatchStatement:
+              CountryCodes:
+                - CN  # Block specific countries if needed
+                - RU
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: GeoBlockRule
+      
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: ApiWebACL
+
+  # Associate WAF with API Gateway
+  WebACLAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${RestApi}/stages/prod'
+      WebACLArn: !GetAtt ApiWebACL.Arn</code></pre>
+
+                <h4>API Keys and Usage Plans</h4>
+
+                <p>Implement client identification and rate limiting with API keys:</p>
+
+                <pre><code>Resources:
+  # Create usage plan with throttling
+  ApiUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: StandardPlan
+      Description: Standard API access with rate limits
+      Throttle:
+        BurstLimit: 100  # Max concurrent requests
+        RateLimit: 50    # Sustained requests per second
+      Quota:
+        Limit: 10000     # Total requests per period
+        Period: DAY
+      ApiStages:
+        - ApiId: !Ref RestApi
+          Stage: !Ref ProdStage
+
+  # Create API key
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: ClientApiKey
+      Description: API key for external client
+      Enabled: true
+
+  # Associate key with usage plan
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref ApiUsagePlan</code></pre>
+
+                <p>Validate API keys in your Lambda functions for additional security:</p>
+
+                <pre><code>def lambda_handler(event, context):
+    """Validate API key and client permissions"""
+    
+    api_key = event['headers'].get('x-api-key')
+    
+    if not api_key:
+        return {
+            'statusCode': 401,
+            'body': json.dumps({'error': 'API key required'})
+        }
+    
+    # Validate key against DynamoDB or Secrets Manager
+    if not validate_api_key(api_key):
+        return {
+            'statusCode': 403,
+            'body': json.dumps({'error': 'Invalid API key'})
+        }
+    
+    # Process authorized request
+    return process_request(event)</code></pre>
+
+                <h4>Amazon Cognito Integration for User Authentication</h4>
+
+                <p>Implement secure user authentication with Amazon Cognito User Pools:</p>
+
+                <pre><code>Resources:
+  # Create Cognito User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: ApiUserPool
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+
+  # User Pool Client
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: ApiClient
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  # API Gateway Authorizer
+  CognitoAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: CognitoAuthorizer
+      Type: COGNITO_USER_POOLS
+      IdentitySource: method.request.header.Authorization
+      RestApiId: !Ref RestApi
+      ProviderARNs:
+        - !GetAtt UserPool.Arn</code></pre>
+
+                <p>Access authenticated user information in Lambda:</p>
+
+                <pre><code>def lambda_handler(event, context):
+    """Access Cognito user claims"""
+    
+    # Extract user identity from Cognito authorizer
+    claims = event['requestContext']['authorizer']['claims']
+    
+    user_id = claims['sub']  # Cognito user ID
+    email = claims['email']
+    username = claims['cognito:username']
+    
+    # Implement user-specific logic
+    user_data = get_user_data(user_id)
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'user': email,
+            'data': user_data
+        })
+    }</code></pre>
+
+                <h4>Security Best Practices Checklist</h4>
+                <ul>
+                    <li>✓ <strong>Enable HTTPS Only:</strong> API Gateway enforces TLS 1.2+ by default</li>
+                    <li>✓ <strong>Use AWS WAF:</strong> Protect against OWASP Top 10 vulnerabilities</li>
+                    <li>✓ <strong>Implement Rate Limiting:</strong> Prevent abuse with throttling and burst limits</li>
+                    <li>✓ <strong>Validate Input:</strong> Sanitize all user inputs at gateway and Lambda levels</li>
+                    <li>✓ <strong>Least Privilege IAM:</strong> Grant minimal permissions to Lambda execution roles</li>
+                    <li>✓ <strong>Encrypt Sensitive Data:</strong> Use AWS KMS for encryption at rest</li>
+                    <li>✓ <strong>Enable Access Logging:</strong> Log all API requests to CloudWatch or S3</li>
+                    <li>✓ <strong>Use Secrets Manager:</strong> Never hardcode credentials or API keys</li>
+                    <li>✓ <strong>CORS Configuration:</strong> Restrict origins to trusted domains only</li>
+                    <li>✓ <strong>Monitor Security Events:</strong> Set up CloudWatch alarms for suspicious activity</li>
+                </ul>
+
                 <h2>Conclusion</h2>
 
                 <p>Building production-ready REST APIs with API Gateway and Lambda provides a scalable, cost-effective solution for modern applications. By implementing proper security measures, performance optimizations, and monitoring, you can create APIs that handle millions of requests while maintaining low latency and high availability.</p>
