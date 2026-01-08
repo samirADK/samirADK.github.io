@@ -872,6 +872,57 @@
                     <li><strong>Terraform:</strong> To provision all infrastructure.</li>
                 </ul>
 
+                <h3>Request Flow Diagram</h3>
+                <p>Understanding the complete request flow helps visualize how components interact in real-time:</p>
+
+                <h4>Send OTP Flow</h4>
+                <pre><code>┌──────────┐        ┌──────────────┐        ┌─────────────┐        ┌──────────┐        ┌─────────┐
+│  Client  │───1───▶│ API Gateway  │───2───▶│   Lambda    │───3───▶│ DynamoDB │        │   SNS   │
+│  (User)  │        │  /send-otp   │        │  send_otp   │        │  (Store) │        │ (SMS)   │
+└──────────┘        └──────────────┘        └─────────────┘        └──────────┘        └─────────┘
+     ▲                                              │                                          │
+     │                                              └──────────────4──────────────────────────┘
+     │                                                                                         │
+     └──────────────────────────5: Success Response◀─────────────────────────────────────────┘
+
+Flow Steps:
+1. User sends POST request with phone number to /send-otp
+2. API Gateway triggers send_otp Lambda function
+3. Lambda generates 6-digit OTP and stores in DynamoDB with 5-min TTL
+4. Lambda sends OTP via SNS to user's phone number
+5. Success response returned to client</code></pre>
+
+                <h4>Verify OTP Flow</h4>
+                <pre><code>┌──────────┐        ┌──────────────┐        ┌─────────────┐        ┌──────────┐
+│  Client  │───1───▶│ API Gateway  │───2───▶│   Lambda    │───3───▶│ DynamoDB │
+│  (User)  │        │ /verify-otp  │        │ verify_otp  │        │  (Read)  │
+└──────────┘        └──────────────┘        └─────────────┘        └──────────┘
+     ▲                                              │                      │
+     │                                              └──────4───────────────┘
+     │                                              │
+     │                                        [Validation]
+     │                                        • OTP exists?
+     │                                        • Not expired?
+     │                                        • Matches input?
+     │                                              │
+     └──────────5: Verified True/False◀─────────────┘
+
+Flow Steps:
+1. User sends POST request with phone number and OTP to /verify-otp
+2. API Gateway triggers verify_otp Lambda function
+3. Lambda retrieves stored OTP from DynamoDB by userId
+4. Lambda validates: existence, expiration time, OTP match
+5. Response indicates verification success or specific failure reason</code></pre>
+
+                <h3>Component Interaction Details</h3>
+                <ul>
+                    <li><strong>API Gateway:</strong> Acts as the entry point, handling HTTPS termination, request routing, and throttling</li>
+                    <li><strong>Lambda Functions:</strong> Stateless execution environment that scales automatically based on incoming requests</li>
+                    <li><strong>DynamoDB:</strong> NoSQL database with automatic TTL deletion for expired OTPs, providing consistent single-digit millisecond latency</li>
+                    <li><strong>SNS:</strong> Reliable SMS delivery service supporting 200+ countries with automatic retry mechanisms</li>
+                    <li><strong>IAM Roles:</strong> Least-privilege permissions ensuring Lambda can only access required resources</li>
+                </ul>
+
                 <h2>Prerequisites</h2>
                 <ul>
                     <li>AWS Account</li>
@@ -1467,6 +1518,315 @@ output "otp_table_name" {
                     <li>✓ Documented API endpoints and error codes</li>
                     <li>✓ Performed load testing to validate auto-scaling behavior</li>
                 </ul>
+
+                <h2>Security Concerns and Advanced Best Practices</h2>
+                
+                <p>Building a production OTP service requires addressing critical security and cost concerns that can significantly impact your application's reliability and budget.</p>
+
+                <h3>SMS Cost Management and Prevention</h3>
+                
+                <p>SMS delivery through Amazon SNS incurs charges that vary significantly by destination country. Without proper controls, malicious actors or bugs can generate unexpected costs.</p>
+
+                <h4>SMS Pricing Reality Check</h4>
+                <ul>
+                    <li><strong>United States:</strong> $0.00645 per SMS (relatively inexpensive)</li>
+                    <li><strong>India:</strong> $0.00425 per SMS</li>
+                    <li><strong>United Kingdom:</strong> $0.04290 per SMS (10x more expensive)</li>
+                    <li><strong>Germany:</strong> $0.07240 per SMS</li>
+                    <li><strong>Kuwait:</strong> $0.11550 per SMS (27x US cost)</li>
+                </ul>
+
+                <p><strong>Cost Scenario:</strong> If an attacker triggers 10,000 SMS messages to Kuwait numbers, your bill would be $1,155—in just minutes.</p>
+
+                <h4>Implementing Rate Limiting</h4>
+                <p>Add DynamoDB tracking to prevent SMS abuse:</p>
+
+                <pre><code>import time
+
+def lambda_handler(event, context):
+    body = json.loads(event.get('body', '{}'))
+    user_id = body.get('userId')
+    
+    # Check rate limit: max 3 OTPs per phone number per hour
+    rate_limit_key = f"rate_limit_{user_id}"
+    
+    try:
+        response = table.get_item(Key={'userId': rate_limit_key})
+        item = response.get('Item')
+        
+        if item:
+            attempts = item.get('attempts', 0)
+            last_reset = item.get('last_reset', 0)
+            current_time = int(time.time())
+            
+            # Reset counter every hour
+            if current_time - last_reset > 3600:
+                attempts = 0
+                last_reset = current_time
+            
+            if attempts >= 3:
+                return {
+                    'statusCode': 429,  # Too Many Requests
+                    'body': json.dumps({
+                        'error': 'Rate limit exceeded',
+                        'message': 'Maximum 3 OTP requests per hour',
+                        'retry_after': 3600 - (current_time - last_reset)
+                    })
+                }
+            
+            # Increment attempt counter
+            table.put_item(Item={
+                'userId': rate_limit_key,
+                'attempts': attempts + 1,
+                'last_reset': last_reset,
+                'expirationTime': current_time + 3600
+            })
+        else:
+            # First attempt
+            table.put_item(Item={
+                'userId': rate_limit_key,
+                'attempts': 1,
+                'last_reset': int(time.time()),
+                'expirationTime': int(time.time()) + 3600
+            })
+    
+    except Exception as e:
+        print(f"Rate limiting error: {e}")
+        # Fail closed - deny request if rate limiting fails
+        return {
+            'statusCode': 503,
+            'body': json.dumps({'error': 'Service temporarily unavailable'})
+        }
+    
+    # Continue with normal OTP generation
+    otp = str(random.randint(100000, 999999))
+    # ... rest of the code</code></pre>
+
+                <h4>Geographic SMS Restrictions</h4>
+                <p>Restrict SMS delivery to approved countries to manage costs:</p>
+
+                <pre><code>import phonenumbers
+
+ALLOWED_COUNTRY_CODES = ['US', 'IN', 'CA', 'AU']  # Define allowed countries
+
+def validate_phone_number(phone_number):
+    """Validate phone number format and country"""
+    try:
+        parsed = phonenumbers.parse(phone_number, None)
+        
+        if not phonenumbers.is_valid_number(parsed):
+            return False, "Invalid phone number"
+        
+        country_code = phonenumbers.region_code_for_number(parsed)
+        
+        if country_code not in ALLOWED_COUNTRY_CODES:
+            return False, f"SMS not supported for country: {country_code}"
+        
+        return True, None
+    
+    except phonenumbers.NumberParseException:
+        return False, "Invalid phone number format"
+
+def lambda_handler(event, context):
+    body = json.loads(event.get('body', '{}'))
+    user_id = body.get('userId')
+    
+    # Validate phone number and country
+    is_valid, error_message = validate_phone_number(user_id)
+    
+    if not is_valid:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({
+                'error': error_message,
+                'supported_countries': ALLOWED_COUNTRY_CODES
+            })
+        }
+    
+    # Continue with OTP generation...</code></pre>
+
+                <h4>Cost Monitoring Alarms</h4>
+                <p>Set up CloudWatch billing alarms for SNS spending:</p>
+
+                <pre><code>Resources:
+  SNSCostAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: HighSNSCosts
+      AlarmDescription: Alert when SNS costs exceed threshold
+      MetricName: EstimatedCharges
+      Namespace: AWS/Billing
+      Statistic: Maximum
+      Period: 21600  # 6 hours
+      EvaluationPeriods: 1
+      Threshold: 50.0  # Alert at $50
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: AmazonSNS
+      AlarmActions:
+        - !Ref AlertSNSTopic</code></pre>
+
+                <h3>OTP Retry Limits and Security</h3>
+
+                <p>Implement verification attempt limits to prevent brute-force attacks:</p>
+
+                <h4>Track Failed Verification Attempts</h4>
+                <pre><code>def lambda_handler(event, context):
+    body = json.loads(event.get('body', '{}'))
+    user_id = body.get('userId')
+    input_otp = body.get('otp')
+    
+    # Track verification attempts
+    attempt_key = f"verify_attempts_{user_id}"
+    
+    try:
+        attempt_record = table.get_item(Key={'userId': attempt_key})
+        
+        if attempt_record.get('Item'):
+            failed_attempts = attempt_record['Item'].get('failed_attempts', 0)
+            
+            # Lock account after 5 failed attempts
+            if failed_attempts >= 5:
+                return {
+                    'statusCode': 403,
+                    'body': json.dumps({
+                        'verified': False,
+                        'error': 'Account temporarily locked',
+                        'message': 'Too many failed attempts. Request new OTP in 15 minutes.'
+                    })
+                }
+    
+    except Exception as e:
+        print(f"Error checking attempts: {e}")
+    
+    # Get stored OTP
+    response = table.get_item(Key={'userId': user_id})
+    item = response.get('Item')
+    
+    if not item:
+        # Increment failed attempts
+        increment_failed_attempts(user_id, attempt_key)
+        return {
+            'statusCode': 404,
+            'body': json.dumps({
+                'verified': False,
+                'error': 'OTP not found or expired'
+            })
+        }
+    
+    # Check expiration
+    if int(time.time()) > item.get('expirationTime', 0):
+        # Don't increment attempts for expired OTPs
+        return {
+            'statusCode': 410,
+            'body': json.dumps({
+                'verified': False,
+                'error': 'OTP expired',
+                'message': 'Request a new OTP'
+            })
+        }
+    
+    # Verify OTP
+    if item.get('otp') == input_otp:
+        # Success - clear attempt counter and delete OTP
+        table.delete_item(Key={'userId': attempt_key})
+        table.delete_item(Key={'userId': user_id})
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'verified': True,
+                'message': 'OTP verified successfully'
+            })
+        }
+    
+    # Failed verification - increment counter
+    increment_failed_attempts(user_id, attempt_key)
+    
+    return {
+        'statusCode': 401,
+        'body': json.dumps({
+            'verified': False,
+            'error': 'Invalid OTP',
+            'attempts_remaining': 5 - get_failed_attempts(user_id, attempt_key)
+        })
+    }
+
+def increment_failed_attempts(user_id, attempt_key):
+    """Increment failed verification attempts"""
+    try:
+        current_attempts = get_failed_attempts(user_id, attempt_key)
+        
+        table.put_item(Item={
+            'userId': attempt_key,
+            'failed_attempts': current_attempts + 1,
+            'expirationTime': int(time.time()) + 900  # 15 min lockout
+        })
+    except Exception as e:
+        print(f"Error incrementing attempts: {e}")
+
+def get_failed_attempts(user_id, attempt_key):
+    """Get current failed attempt count"""
+    try:
+        response = table.get_item(Key={'userId': attempt_key})
+        return response.get('Item', {}).get('failed_attempts', 0)
+    except:
+        return 0</code></pre>
+
+                <h3>Additional Security Hardening</h3>
+
+                <h4>1. OTP Complexity and Entropy</h4>
+                <p>Use cryptographically secure random number generation:</p>
+                <pre><code>import secrets
+
+# Instead of: otp = str(random.randint(100000, 999999))
+# Use:
+otp = str(secrets.randbelow(900000) + 100000)  # Cryptographically secure</code></pre>
+
+                <h4>2. Phone Number Validation</h4>
+                <p>Prevent attacks using invalid or premium-rate numbers:</p>
+                <ul>
+                    <li>Validate E.164 format: +[country code][number]</li>
+                    <li>Block premium-rate prefixes</li>
+                    <li>Implement allowlist for trusted number ranges</li>
+                    <li>Verify number isn't VoIP or disposable</li>
+                </ul>
+
+                <h4>3. Request Origin Validation</h4>
+                <p>Implement CAPTCHA or challenge tokens to prevent automated abuse:</p>
+                <pre><code># Verify reCAPTCHA token before sending OTP
+def verify_recaptcha(token):
+    """Verify Google reCAPTCHA token"""
+    import requests
+    
+    secret_key = os.environ['RECAPTCHA_SECRET']
+    
+    response = requests.post(
+        'https://www.google.com/recaptcha/api/siteverify',
+        data={
+            'secret': secret_key,
+            'response': token
+        }
+    )
+    
+    result = response.json()
+    return result.get('success', False) and result.get('score', 0) > 0.5</code></pre>
+
+                <h4>4. Honeypot Fields</h4>
+                <p>Add hidden fields to detect bot submissions:</p>
+                <pre><code>def lambda_handler(event, context):
+    body = json.loads(event.get('body', '{}'))
+    
+    # Check honeypot field (should be empty)
+    if body.get('website') or body.get('url'):
+        # Likely bot - fail silently
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'message': 'OTP sent successfully'})
+        }
+    
+    # Continue with normal processing...</code></pre>
 
                 <h2>Conclusion</h2>
                 <p>Using Terraform, you've successfully defined and deployed a fully serverless, scalable, and secure OTP delivery system. This approach leverages AWS API Gateway for exposing endpoints, AWS Lambda for business logic, Amazon SNS for sending SMS, and Amazon DynamoDB for persistent OTP storage with automatic expiration. The entire infrastructure is managed as code, ensuring it is repeatable, version-controlled, and auditable.</p>
