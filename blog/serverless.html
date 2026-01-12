@@ -324,6 +324,13 @@
         .blog-post-image img {
             width: 100%;
             display: block;
+            cursor: pointer;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        
+        .blog-post-image img:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
         }
         .blog-post-caption {
             text-align: center;
@@ -777,6 +784,66 @@
             .blog-post-title {
                 font-size: 30px;
             }
+        }
+        
+        /* Lightbox Modal Styles */
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .lightbox-modal.active {
+            display: flex;
+        }
+        
+        .lightbox-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            animation: zoomIn 0.3s ease;
+        }
+        
+        .lightbox-content img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            z-index: 10000;
+        }
+        
+        .lightbox-close:hover,
+        .lightbox-close:focus {
+            color: var(--accent-color);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes zoomIn {
+            from { transform: scale(0.8); }
+            to { transform: scale(1); }
         }
     </style>
 </head>
@@ -1991,6 +2058,53 @@ def verify_recaptcha(token):
                     });
                 });
             }
+            
+            // --- Image Lightbox ---
+            const blogImages = document.querySelectorAll('.blog-post-image img');
+            
+            // Create lightbox modal
+            const lightboxModal = document.createElement('div');
+            lightboxModal.className = 'lightbox-modal';
+            lightboxModal.innerHTML = `
+                <span class="lightbox-close">&times;</span>
+                <div class="lightbox-content">
+                    <img src="" alt="">
+                </div>
+            `;
+            document.body.appendChild(lightboxModal);
+            
+            const lightboxImg = lightboxModal.querySelector('img');
+            const closeBtn = lightboxModal.querySelector('.lightbox-close');
+            
+            // Add click event to all blog images
+            blogImages.forEach(img => {
+                img.addEventListener('click', () => {
+                    lightboxImg.src = img.src;
+                    lightboxImg.alt = img.alt;
+                    lightboxModal.classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                });
+            });
+            
+            // Close lightbox
+            const closeLightbox = () => {
+                lightboxModal.classList.remove('active');
+                document.body.style.overflow = '';
+            };
+            
+            closeBtn.addEventListener('click', closeLightbox);
+            lightboxModal.addEventListener('click', (e) => {
+                if (e.target === lightboxModal) {
+                    closeLightbox();
+                }
+            });
+            
+            // Close on Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && lightboxModal.classList.contains('active')) {
+                    closeLightbox();
+                }
+            });
         });
     </script>
 </body>
