@@ -944,6 +944,11 @@ Flow Steps:
 
                 <h2>Step-by-Step Implementation</h2>
 
+                <div class="blog-post-image">
+                    <img src="../img/aws-lambda-console.png" alt="AWS Lambda Console - Accessing Lambda from AWS Management Console">
+                </div>
+                <p class="blog-post-caption">Accessing AWS Lambda from the AWS Management Console - Search for "Lambda" in the services search bar to navigate to the Lambda dashboard where you can create and manage your functions.</p>
+
                 <h3>Step 1: Write Lambda Functions</h3>
                 <p>Create the Python files for your Lambda functions inside the <code>lambda</code> directory.</p>
                 
@@ -1086,6 +1091,11 @@ def lambda_handler(event, context):
         'body': json.dumps({'verified': False, 'error': 'Invalid OTP'})
     }
 </code></pre>
+
+                <div class="blog-post-image">
+                    <img src="../img/lambda-function-editor.png" alt="AWS Lambda Function Editor showing send_otp.py and verify_otp.py">
+                </div>
+                <p class="blog-post-caption">Lambda functions deployed in AWS Console - The Code tab shows both send_otp.py and verify_otp.py files in the Lambda function editor, confirming successful deployment of our OTP service functions.</p>
 
                 <h3>Step 2: Terraform Configuration</h3>
                 <p>Create the following Terraform files in the root of your project.</p>
