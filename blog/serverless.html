@@ -900,47 +900,37 @@
             <p class="blog-post-caption">Fig: Architecture Diagram For OTP Service</p>
 
             <div class="blog-post-content">
-                <p>In this tutorial, we will walk through how to build a serverless OTP (One-Time Password) system using AWS services, and deploy the entire infrastructure using Terraform (Infrastructure as Code). This system sends OTPs to users via SMS using Amazon SNS and verifies them using DynamoDB.</p>
+                <p>We will develop a serverless One-Time Password (OTP) system on AWS and we will code the entire set-up using Terraform. It is simply configured: we send a code in SMS with the help of Amazon SNS, and we check it with the record in DynamoDB.</p>
 
-                <h2>Understanding Serverless Computing</h2>
-                <p>Before diving into the implementation, it's crucial to understand what serverless computing means and why it's the ideal approach for our OTP service.</p>
+                <h2>A Quick Look at Serverless</h2>
+                <p>Firstly, we should understand the reason of doing the serverless way before we dive into the code.</p>
                 
-                <h3>What is Serverless?</h3>
-                <p>Serverless computing represents a cloud execution model where the cloud provider dynamically manages the allocation and provisioning of servers. Despite the name, servers still exist but developers don't need to worry about them. The cloud provider handles infrastructure management, scaling, server maintenance, and capacity planning automatically.</p>
+                <p>Serverless does not imply the absence of servers, as the name implies. It simply means that you do not have to contend with them. AWS manages the equipment, revision and capacity planning. You just write the code.</p>
                 
-                <h3>Key Benefits of Serverless</h3>
+                <p><strong>Why it works for us:</strong></p>
                 <ul>
-                    <li><strong>Zero Server Management:</strong> No need to provision, maintain, or scale servers manually. AWS handles all infrastructure concerns.</li>
-                    <li><strong>Automatic Scaling:</strong> Your application scales automatically based on demand from zero to thousands of requests per second.</li>
-                    <li><strong>Cost Efficiency:</strong> You pay only for actual compute time consumed. When your code isn't running, you're not charged.</li>
-                    <li><strong>Built-in High Availability:</strong> AWS distributes your functions across multiple availability zones automatically.</li>
-                    <li><strong>Faster Time to Market:</strong> Focus on business logic instead of infrastructure, accelerating development cycles.</li>
+                    <li><strong>No Ops:</strong> You do not need to patch an OS and deal with fleets of EC2 instances.</li>
+                    <li><strong>Auto-Scaling:</strong> You can have five or five thousand users, and AWS balances automatically.</li>
+                    <li><strong>Cost:</strong> This is the biggest win. You only get billed when the code is running. In case there is no one requesting an OTP then you have no bill.</li>
                 </ul>
                 
-                <h3>Why AWS Lambda for OTP Service?</h3>
-                <p>AWS Lambda is particularly well-suited for an OTP service for several reasons:</p>
-                <ul>
-                    <li><strong>Event-Driven Architecture:</strong> Lambda functions execute in response to HTTP requests from API Gateway, making them perfect for REST APIs.</li>
-                    <li><strong>Sporadic Traffic Patterns:</strong> OTP requests are typically unpredictable and intermittent. Lambda handles this efficiently without idle server costs.</li>
-                    <li><strong>Millisecond Billing:</strong> You're charged only for the exact duration your code executes (rounded to the nearest millisecond), making it extremely cost-effective for short-lived operations like OTP generation.</li>
-                    <li><strong>Built-in Integration:</strong> Lambda integrates seamlessly with API Gateway, DynamoDB, and SNS without additional configuration overhead.</li>
-                    <li><strong>Stateless Operations:</strong> OTP generation and verification are stateless operations, which align perfectly with Lambda's execution model.</li>
-                </ul>
+                <h2>Why Lambda is the Right Fit</h2>
+                <p>The AWS Lambda is ideal in an OTP service due to traffic dynamics. OTP requests are sporadic typically, you may receive a bunch of them at 9:00 AM and none at 3:00 AM.</p>
                 
-                <p>In traditional server-based architectures, you'd need to maintain always-on servers that consume resources even during idle periods. With our serverless approach, AWS Lambda functions activate only when requests arrive, execute the necessary logic, and then terminate optimizing both cost and resource utilization.</p>
+                <p>And by the time you rented a traditional server, you would be renting it to just sit there 90 percent of the time. In the case of Lambda, the function is initiated when a request is sent to the API, executes the logic in some milliseconds and terminates. You will be charged that one-second of compute time. It also works well with API Gateway and DynamoDB which are out-of-the-box compatible and hence there is less glue code to be written.</p>
 
-                <h2>Architecture Overview</h2>
-                <p>We will use the following AWS services:</p>
+                <h2>The Stack</h2>
+                <p>The following are the particular pieces we are using:</p>
                 <ul>
-                    <li><strong>API Gateway:</strong> To expose RESTful endpoints <code>/send-otp</code> and <code>/verify-otp</code>.</li>
-                    <li><strong>AWS Lambda:</strong> To handle OTP generation and verification logic.</li>
-                    <li><strong>Amazon DynamoDB:</strong> To store OTPs with expiration timestamps (TTL).</li>
-                    <li><strong>Amazon SNS:</strong> To send OTPs as SMS to users.</li>
-                    <li><strong>Terraform:</strong> To provision all infrastructure.</li>
+                    <li><strong>API Gateway:</strong> The front door. It provides us with our <code>/send-otp</code> and <code>/verify-otp</code>.</li>
+                    <li><strong>AWS Lambda:</strong> The brain. It executes the logic to produce the numbers and test them.</li>
+                    <li><strong>Amazon DynamoDB:</strong> The memory. Here we save the OTP with Time to Live (TTL) such that it will automatically expire after several minutes.</li>
+                    <li><strong>Amazon SNS:</strong> The shipping service. This really transmits the SMS to the user.</li>
+                    <li><strong>Terraform:</strong> The blueprint. We are using this to create the entire environment to not have to be clicking over the AWS console manually.</li>
                 </ul>
 
-                <h3>Request Flow Diagram</h3>
-                <p>Understanding the complete request flow helps visualize how components interact in real-time:</p>
+                <h2>How the Request Flows</h2>
+                <p>To picture the way this works in practice:</p>
 
                 <h4>Send OTP Flow</h4>
                 <pre><code>┌──────────┐        ┌──────────────┐        ┌─────────────┐        ┌──────────┐        ┌─────────┐
@@ -982,12 +972,13 @@ Flow Steps:
 5. Response indicates verification success or specific failure reason</code></pre>
 
                 <h3>Component Interaction Details</h3>
+                <p>This section is a description of the interactions among the components that form the entire system.</p>
                 <ul>
-                    <li><strong>API Gateway:</strong> Acts as the entry point, handling HTTPS termination, request routing, and throttling</li>
-                    <li><strong>Lambda Functions:</strong> Stateless execution environment that scales automatically based on incoming requests</li>
-                    <li><strong>DynamoDB:</strong> NoSQL database with automatic TTL deletion for expired OTPs, providing consistent single-digit millisecond latency</li>
-                    <li><strong>SNS:</strong> Reliable SMS delivery service supporting 200+ countries with automatic retry mechanisms</li>
-                    <li><strong>IAM Roles:</strong> Least-privilege permissions ensuring Lambda can only access required resources</li>
+                    <li><strong>API Gateway:</strong> This is the access point which processes the termination of HTTPS, routing of requests, and throttling.</li>
+                    <li><strong>Lambda Functions:</strong> Stateless execution environment which is scaled automatically with incoming requests.</li>
+                    <li><strong>DynamoDB:</strong> Non-relational database that has automatic TTL deletion of expired OTPs which maintains a constant latency of single digits of milliseconds.</li>
+                    <li><strong>SNS:</strong> Trusted SMS delivery platform that covers 200 plus countries with inbuilt retries.</li>
+                    <li><strong>IAM Roles:</strong> Least-privilege access which guarantees that Lambda can access only what is necessary.</li>
                 </ul>
 
                 <h2>Prerequisites</h2>
@@ -1017,12 +1008,12 @@ Flow Steps:
                 <p class="blog-post-caption">Accessing AWS Lambda from the AWS Management Console - Search for "Lambda" in the services search bar to navigate to the Lambda dashboard where you can create and manage your functions.</p>
 
                 <h3>Step 1: Write Lambda Functions</h3>
-                <p>Create the Python files for your Lambda functions inside the <code>lambda</code> directory.</p>
+                <p>Write the Python scripts of your Lambda functions in the directory called <code>lambda</code>.</p>
                 
-                <p>Our Lambda functions serve as the core business logic for the OTP service. The <code>send_otp.py</code> function generates a random 6-digit OTP, stores it in DynamoDB with an expiration timestamp, and sends it via SMS. The <code>verify_otp.py</code> function validates user-submitted OTPs against stored values and checks for expiration.</p>
+                <p>The OTP service is based on our Lambda functions as the main business logic. The <code>send_otp.py</code> application obtains a 6-digit OTP by generating a number randomly and storing it in DynamoDB with an expiry date and transmitting it through SMS. The <code>verify_otp.py</code> feature authenticates the OTPs entered by users and compares them with the stored OTPs and verifies expiration.</p>
 
                 <h4><code>lambda/send_otp.py</code></h4>
-                <p><strong>Function Overview:</strong> This function handles OTP generation and delivery. It receives a phone number, generates a secure random OTP, stores it with a 5-minute TTL (Time To Live) in DynamoDB, and dispatches it via Amazon SNS. The function includes comprehensive error handling for JSON parsing, missing parameters, and AWS service failures.</p>
+                <p><strong>Description of the Function:</strong> This is the OTP generation and delivery function. It is fed a phone number, creates a random OTP, which is secure, and with a TTL (Time To Live) of 5 minutes, it is placed in DynamoDB and sent through Amazon SNS. The role will cover all aspects of error management related to JSON parsing, parameter omissions, and service errors of the Amazon.</p>
 <pre><code class="language-python">
 import json
 import boto3
@@ -1084,7 +1075,7 @@ def lambda_handler(event, context):
 </code></pre>
 
                 <h4><code>lambda/verify_otp.py</code></h4>
-                <p><strong>Function Overview:</strong> This function validates OTP submissions. It retrieves the stored OTP from DynamoDB using the userId, verifies it hasn't expired, compares it with the user-provided OTP, and returns appropriate success or error responses. The function implements proper HTTP status codes (404 for not found, 410 for expired, 401 for invalid) to communicate different failure scenarios clearly.</p>
+                <p><strong>Function Overview:</strong> This is a validation OTP submission. It gets the stored OTP in DynamoDB with the help of the userId, checks whether it is not expired, and compares it with the provided OTP by the user and provides the proper success or failure messages. The function applies the correct HTTP status codes (404-not found, 410-expired, 401- invalid) to inform about the various scenarios of failures.</p>
 <pre><code class="language-python">
 import json
 import boto3
@@ -1165,12 +1156,12 @@ def lambda_handler(event, context):
                 <p class="blog-post-caption">Lambda functions deployed in AWS Console - The Code tab shows both send_otp.py and verify_otp.py files in the Lambda function editor, confirming successful deployment of our OTP service functions.</p>
 
                 <h3>Step 2: Terraform Configuration</h3>
-                <p>Create the following Terraform files in the root of your project.</p>
+                <p>Prepare the following Terraform files in the top of your project.</p>
                 
-                <p>Terraform allows us to define our entire infrastructure as code, making it reproducible, version-controlled, and easy to audit. The configuration provisions all necessary AWS resources including DynamoDB tables, Lambda functions, IAM roles with least-privilege permissions, API Gateway endpoints, and the necessary integrations between services.</p>
+                <p>With Terraform, we can easily code our entire infrastructure which is reproducible, versioned and audit-friendly. The setup provides all the resources required of AWS such as DynamoDB tables, Lambda functions, IAM roles with least-privileged permissions, API Gateway endpoints, and the required inter-service connections.</p>
 
                 <h4><code>main.tf</code></h4>
-                <p>This file sets up all the AWS resources including the required IAM roles and permissions. Notice how we use <code>random_id</code> to generate unique resource names, preventing conflicts if you deploy multiple environments. The IAM policies follow the principle of least privilege, granting only the specific permissions each Lambda function needs.</p>
+                <p>This file configures all the AWS resources such as the IAM roles and permissions required. Pay attention to how we are using <code>random_id</code> to come up with unique resource names, which would not cause any conflicts in case you are deploying more than one environment. The IAM policies are based on the principle of least privilege, which allows a particular set of permissions, as required by each Lambda function.</p>
 <pre><code class="language-hcl">
 provider "aws" {
   region = var.aws_region
@@ -1458,61 +1449,61 @@ output "otp_table_name" {
                 <pre><code>{"verified": false, "error": "Invalid OTP"}</code></pre>
                 
                 <h3>Using Postman (GUI Tool)</h3>
-                <p>Postman provides a more user-friendly interface for API testing:</p>
+                <p>Postman is also easier to interface with:</p>
                 <ol>
-                    <li>Create a new POST request in Postman</li>
-                    <li>Set the URL to your <code>/send-otp</code> endpoint</li>
-                    <li>Navigate to the "Body" tab and select "raw" with "JSON" format</li>
-                    <li>Enter the request body: <code>{"userId": "+11234567890"}</code></li>
-                    <li>Click "Send" and observe the response</li>
-                    <li>Repeat the process for <code>/verify-otp</code> endpoint with the received OTP</li>
+                    <li>Add a new POST message in Postman.</li>
+                    <li>Change the URL to your <code>/send-otp</code> endpoint.</li>
+                    <li>Go to the tab of the body and choose the option of raw and the format of the data to be in JSON.</li>
+                    <li>Make POST request: <code>{"userId": "+11234567890"}</code></li>
+                    <li>Click the button Send and see the reply.</li>
+                    <li>Do the same with <code>/verify-otp</code> endpoint using with received OTP.</li>
                 </ol>
                 
                 <h3>Testing Edge Cases</h3>
-                <p>Comprehensive testing should cover various scenarios:</p>
+                <p>General testing must be done on different scenarios:</p>
                 <ul>
-                    <li><strong>Invalid Phone Format:</strong> Test with incorrectly formatted phone numbers to ensure proper error messages</li>
-                    <li><strong>Expired OTP:</strong> Wait 5 minutes after generating an OTP, then attempt verification (should fail with "OTP expired")</li>
-                    <li><strong>Missing Parameters:</strong> Send requests without required fields to verify error handling</li>
-                    <li><strong>Invalid JSON:</strong> Send malformed JSON to test parsing error responses</li>
-                    <li><strong>Non-Existent User:</strong> Try verifying an OTP for a userId that never requested one</li>
+                    <li><strong>Un-Valid Phone number format:</strong> Testing with faulty phone numbers to get the warning messages in order.</li>
+                    <li><strong>Expired OTP:</strong> Wait 5 minutes since the generation of an OTP and then verify (this should fail with the OTP expired error)</li>
+                    <li><strong>Missing Parameters:</strong> Check the error handling by sending requests incomplete.</li>
+                    <li><strong>Bad JSON:</strong> Post bad JSON to check error responses in parsing.</li>
+                    <li><strong>Non-Existent User:</strong> Attempt to verify OTP on a userId that has not requested one non-existent user.</li>
                 </ul>
                 
                 <h3>Monitoring Test Results</h3>
-                <p>Check AWS CloudWatch Logs to verify Lambda executions:</p>
+                <p>verify Lambda executions: Check AWS CloudWatch logs:</p>
                 <pre><code>aws logs tail /aws/lambda/sendOTPFunction-XXXX --follow</code></pre>
-                <p>This command streams real-time logs, helping you debug any issues during testing.</p>
+                <p>This command shows you real-time logs which will aid you in debugging any kind of problem that occurs in the course of testing.</p>
 
-                <h2>Error Handling and Best Practices</h2>
-                <p>Building production-ready serverless applications requires careful attention to error handling, performance optimization, and security. Here are essential considerations:</p>
+                <h2>Best Practices and Error Handling</h2>
+                <p>Error handling, performance optimization and security have to be taken into consideration carefully when building production-ready serverless applications. These are some of the key considerations:</p>
                 
-                <h3>Comprehensive Error Handling</h3>
+                <h3>End to end Error Management</h3>
                 
-                <h4>1. Lambda Function Error Patterns</h4>
-                <p>Our implementation includes multiple layers of error handling:</p>
+                <h4>Patterns of Lambda Functions Mistakes</h4>
+                <p>We are implementing many levels of error management:</p>
                 <ul>
-                    <li><strong>Input Validation:</strong> Always validate incoming data before processing. Check for required fields, proper data types, and valid formats (e.g., E.164 phone format).</li>
-                    <li><strong>Try-Catch Blocks:</strong> Wrap AWS service calls in exception handlers to catch network issues, permission errors, or service throttling.</li>
-                    <li><strong>Meaningful Error Messages:</strong> Return descriptive error messages that help diagnose issues without exposing sensitive system details.</li>
-                    <li><strong>Appropriate HTTP Status Codes:</strong> Use semantic status codes (400 for bad requests, 401 for auth failures, 404 for not found, 500 for server errors).</li>
+                    <li><strong>Input Checking:</strong> Incoming information must always be checked before its processing. Check on the presence of required fields, right data types and the expected formats (e.g., E.164 phone format).</li>
+                    <li><strong>Try-Catch Blocks:</strong> AWS service calls should be surrounded by exception handlers to handle network problems, access control errors or access control throttling.</li>
+                    <li><strong>Educational Error Messages:</strong> Provide meaningful error messages that can be used to diagnose the problem without disclosing confidential system information.</li>
+                    <li><strong>Proper HTTP Status codes:</strong> HTTP semantic status codes (400 in the case of bad requests, 401 in the case of authentication failures, 404 not found, 500 server errors).</li>
                 </ul>
                 
-                <h4>2. Retry Logic and Idempotency</h4>
-                <p>Implement retry mechanisms for transient failures:</p>
+                <h4>Retry Logic and Idempotency</h4>
+                <p>Add mechanism of retries in case of transient failures:</p>
                 <ul>
-                    <li><strong>Exponential Backoff:</strong> When retrying failed operations, gradually increase wait times between attempts to avoid overwhelming downstream services.</li>
-                    <li><strong>Idempotent Operations:</strong> Design functions so repeated calls with the same input produce the same result without unwanted side effects. For OTP services, consider adding a timestamp or request ID to prevent duplicate SMS sends.</li>
-                    <li><strong>Dead Letter Queues (DLQ):</strong> Configure Lambda DLQs to capture failed events for later analysis or reprocessing.</li>
+                    <li><strong>Exponential Backoff:</strong> Backoff-At least when retries are applied to failed operations, exponential downplaying is used to prevent overloading downstream services.</li>
+                    <li><strong>Idempotence Operations:</strong> Design is regarded to be the same as when calling functions with inputs which then result in the same outcome without any undesired side effects. In the service of OTP, you can consider relating a timestamp or request id to avoid duplicate transmission of SMS.</li>
+                    <li><strong>Dead Letter Queues (DLQ):</strong> Enable Lambda DLQs to receive gained events, which can be analysed or reprocessed.</li>
                 </ul>
                 
                 <h3>Managing Cold Starts</h3>
-                <p>Cold starts occur when Lambda initializes a new execution environment, causing increased latency on the first invocation. Mitigation strategies include:</p>
+                <p>The cold starts are observed when Lambda creates a fresh execution environment, which delays returns more on the first call. The mitigation measures are:</p>
                 <ul>
-                    <li><strong>Provisioned Concurrency:</strong> Keep Lambda instances warm by configuring provisioned concurrency for predictable performance (note: this increases costs).</li>
-                    <li><strong>Optimize Package Size:</strong> Reduce deployment package size by removing unnecessary dependencies. Smaller packages reduce initialization time.</li>
-                    <li><strong>Code Optimization:</strong> Move initialization code outside the handler function so it runs once per container rather than per invocation.</li>
-                    <li><strong>Connection Pooling:</strong> Reuse database and AWS SDK clients across invocations by declaring them outside the handler.</li>
-                    <li><strong>Choose Appropriate Memory:</strong> Higher memory allocation also provides more CPU, which can reduce initialization time.</li>
+                    <li><strong>Warm aviation:</strong> Warm Lambda instances Warm Lambda instances, provide predictable performance by configuring provisioned concurrency (note: more expensive).</li>
+                    <li><strong>Minimize the Size of the Package:</strong> Minimize the size of the deployment package by eliminating unnecessary dependency. Smaller packages minimize the time of initiating.</li>
+                    <li><strong>Code Optimization:</strong> Extraction: Extract Initialize Keeps uninitiating code outside the handler function to execute it on a per-container-family basis as opposed to a per-invocation-family basis.</li>
+                    <li><strong>Connection Pooling:</strong> Recycle database and AWS SDK clients between calls by declaring them outside the handler.</li>
+                    <li><strong>Select Suitable Memory:</strong> Increased memory allocation leaves more CPU, capable of cutting on start-up time.</li>
                 </ul>
                 
                 <p><strong>Example of optimized Lambda structure:</strong></p>
@@ -1520,103 +1511,103 @@ output "otp_table_name" {
                 
                 <h3>Security Best Practices</h3>
                 
-                <h4>1. IAM Policies - Principle of Least Privilege</h4>
-                <p>Grant only the minimum permissions necessary:</p>
+                <h4>IAM Policies- Least Privilege Principle</h4>
+                <p>Provide access to a minimum number of permissions:</p>
                 <ul>
-                    <li><strong>Resource-Specific Policies:</strong> Our Terraform configuration restricts DynamoDB access to only the OTP table ARN, not all tables.</li>
-                    <li><strong>Action-Specific Permissions:</strong> Allow only required actions (GetItem, PutItem) rather than broad wildcards like <code>dynamodb:*</code>.</li>
-                    <li><strong>SNS Restrictions:</strong> In production, restrict SNS publish to specific topics or phone number patterns instead of <code>Resource: "*"</code>.</li>
+                    <li><strong>Resource-Specific Policies resource-specific policies:</strong> The Terraform configuration leaves DynamoDB access on all tables, but only to OTP table ARN.</li>
+                    <li><strong>Action-Specific Permissions:</strong> This should have action-specific permissions, e.g. only what is necessary (GetItem, PutItem) as opposed to sets of wildcards such as <code>dynamodb:*</code>.</li>
+                    <li><strong>SNS Restrictions:</strong> Limit SNS publish to particular topics or exchange number patterns rather than <code>Resource: "*"</code>.</li>
                 </ul>
                 
-                <h4>2. API Security</h4>
-                <p>Enhance API Gateway security:</p>
+                <h4>API Security</h4>
+                <p>Improve the API Gateway insecurity:</p>
                 <ul>
-                    <li><strong>API Keys:</strong> Require API keys for all requests to prevent unauthorized access.</li>
-                    <li><strong>Usage Plans and Throttling:</strong> Configure rate limits to prevent abuse (e.g., 10 requests per minute per user).</li>
-                    <li><strong>AWS WAF Integration:</strong> Add AWS Web Application Firewall to protect against common attacks like SQL injection or DDoS.</li>
-                    <li><strong>Request Validation:</strong> Enable API Gateway request validation to reject malformed requests before they reach Lambda.</li>
-                    <li><strong>CORS Configuration:</strong> If building a web frontend, configure CORS properly to allow only trusted domains.</li>
+                    <li><strong>API keys:</strong> API keys are also required on each request to ensure that it is not accessed without authorization.</li>
+                    <li><strong>Usage Plans and Throttling:</strong> Set rate limits to avoid abuse (e.g. 10 requests per minute per user).</li>
+                    <li><strong>AWS WAF Integration:</strong> Instance AWS Web Application Firewall to mitigate most common attacks (SQL injection or DDoS).</li>
+                    <li><strong>Request Validation:</strong> API Gateway request validation to deny the malformed requests to Lambda.</li>
+                    <li><strong>CORS Set up:</strong> In case of a web front, set up CORS appropriately to just allow trusted domains.</li>
                 </ul>
                 
-                <h4>3. Data Protection</h4>
+                <h4>Data Protection</h4>
                 <ul>
-                    <li><strong>Encryption at Rest:</strong> Enable DynamoDB encryption to protect stored OTPs (AWS manages keys automatically).</li>
-                    <li><strong>Encryption in Transit:</strong> API Gateway enforces HTTPS by default, ensuring data is encrypted during transmission.</li>
-                    <li><strong>Short TTL Values:</strong> Keep OTP expiration times short (5 minutes or less) to minimize exposure windows.</li>
-                    <li><strong>Secure OTP Generation:</strong> Use cryptographically secure random number generators. Python's <code>random.SystemRandom()</code> is more secure than <code>random.randint()</code> for production.</li>
+                    <li><strong>Encryption at Rest:</strong> DynamoDB encryption is a feature that encrypts any stored OTPs (keys are managed automatically by AWS).</li>
+                    <li><strong>Encryption in Transit:</strong> API Gateway is by default configured to use HTTPS, which means that the data is encrypted on the way.</li>
+                    <li><strong>Short TTL Values:</strong> OTP expiration times should be as short as possible (less than 5 minutes) to reduce exposure times.</li>
+                    <li><strong>Generation of OTP Cryptographically Secure:</strong> Use of Cryptographically secure random number generators. The <code>random.SystemRandom()</code> of Python is more production-safe than <code>random.randint()</code> is.</li>
                 </ul>
                 
                 <h3>Logging and Debugging</h3>
                 
                 <h4>CloudWatch Integration</h4>
-                <p>Lambda automatically sends logs to CloudWatch. Enhance observability with these practices:</p>
+                <p>The logs are automatically transferred to CloudWatch by the Lambda. Improve observability using the following practices:</p>
                 <ul>
-                    <li><strong>Structured Logging:</strong> Log events in JSON format for easier parsing and querying.</li>
-                    <li><strong>Contextual Information:</strong> Include request IDs, user IDs, and timestamps in log entries for correlation.</li>
-                    <li><strong>Log Levels:</strong> Use appropriate levels (INFO, WARNING, ERROR) to filter logs effectively.</li>
-                    <li><strong>Avoid Logging Sensitive Data:</strong> Never log OTPs, phone numbers, or other PII in production environments.</li>
+                    <li><strong>Structured Logging:</strong> Use of JSON structure to enable easy parsing and querying of the log events.</li>
+                    <li><strong>Contextual Information:</strong> Log entries should contain request identifiers, user identifiers, and time to correlate them.</li>
+                    <li><strong>Log Levels:</strong> It is advisable to use the right levels ( INFO, warning, error) to filter logs.</li>
+                    <li><strong>Avoid Logging Sensitive Data:</strong> OTPs and phone numbers should never be logged in any production.</li>
                 </ul>
                 
                 <p><strong>Example structured logging:</strong></p>
                 <pre><code>import json<br/>import logging<br/><br/>logger = logging.getLogger()<br/>logger.setLevel(logging.INFO)<br/><br/>def lambda_handler(event, context):<br/>    logger.info(json.dumps({<br/>        'event': 'otp_generation',<br/>        'request_id': context.request_id,<br/>        'status': 'started'<br/>    }))</code></pre>
                 
-                <h4>AWS X-Ray for Distributed Tracing</h4>
-                <p>Enable AWS X-Ray to trace requests across services:</p>
+                <h4>AWS X-Ray distributed tracing</h4>
+                <p>Trace service requests in AWS X-Ray:</p>
                 <ul>
-                    <li><strong>End-to-End Visibility:</strong> Track requests from API Gateway through Lambda to DynamoDB and SNS.</li>
-                    <li><strong>Performance Bottlenecks:</strong> Identify slow operations and optimize accordingly.</li>
-                    <li><strong>Error Analysis:</strong> Visualize where errors occur in the request chain.</li>
+                    <li><strong>end-to-end-visibility:</strong> Monitor API Gateway to Lambda to DynamoDB and SNS requests.</li>
+                    <li><strong>Performance Bottlenecks:</strong> Fast operations- identify the slowness and optimize them.</li>
+                    <li><strong>Error Analysis:</strong> Visualize request chain errors.</li>
                 </ul>
                 
-                <p>Enable X-Ray in Terraform by adding to Lambda configuration:</p>
+                <p>Enables X-Ray in Terraform: Add to Lambda configuration:</p>
                 <pre><code>tracing_config {<br/>  mode = "Active"<br/>}</code></pre>
                 
                 <h3>Cost Optimization</h3>
                 <ul>
-                    <li><strong>Right-Size Memory:</strong> Lambda memory affects pricing. Start with 128MB and increase only if needed based on performance testing.</li>
-                    <li><strong>Monitor Invocations:</strong> Use CloudWatch metrics to track invocation counts and identify unexpected usage spikes.</li>
-                    <li><strong>DynamoDB On-Demand vs Provisioned:</strong> For unpredictable workloads, on-demand pricing (used in our setup) is often more cost-effective.</li>
-                    <li><strong>SNS Cost Management:</strong> SMS costs vary by country. Monitor SNS spending and implement rate limiting to prevent abuse.</li>
-                    <li><strong>Set Budget Alerts:</strong> Configure AWS Budgets to alert you when spending exceeds thresholds.</li>
+                    <li><strong>Right-Size Memory:</strong> Lambda memory influences prices. You can start with 128MB and upgrade depending on the performance tests.</li>
+                    <li><strong>Monitor Invocations:</strong> CloudWatch metrics can be used to monitor invocation counts and detect unusual spikes of usage.</li>
+                    <li><strong>DynamoDB On-Demand vs Provisioned:</strong> In unpredictable workloads, an on-demand pricing (which we have implemented) may be cheaper.</li>
+                    <li><strong>SNS Cost Management:</strong> The cost of SMS differs by the country. Tracking SNS costs and rate limiting to eliminate abuse.</li>
+                    <li><strong>Create Budget Scripts:</strong> Enabling AWS Budgets to notify you when your spending is beyond certain limits.</li>
                 </ul>
                 
-                <h3>Production Readiness Checklist</h3>
-                <p>Before deploying to production, ensure you've addressed:</p>
+                <h3>Production Checklist Ready Checklist</h3>
+                <p>Before going to production, make sure that you have tackled:</p>
                 <ul>
-                    <li>✓ Implemented proper error handling and retry logic</li>
-                    <li>✓ Configured CloudWatch alarms for errors and throttling</li>
-                    <li>✓ Enabled AWS X-Ray for distributed tracing</li>
-                    <li>✓ Applied least-privilege IAM policies</li>
-                    <li>✓ Set up API rate limiting and throttling</li>
-                    <li>✓ Enabled DynamoDB Point-in-Time Recovery for disaster recovery</li>
-                    <li>✓ Configured Lambda reserved concurrency to prevent runaway costs</li>
-                    <li>✓ Tested all error scenarios (expired OTPs, invalid inputs, network failures)</li>
-                    <li>✓ Set up monitoring dashboards and alerts</li>
-                    <li>✓ Documented API endpoints and error codes</li>
-                    <li>✓ Performed load testing to validate auto-scaling behavior</li>
+                    <li>✓ Installed error recovery and retries.</li>
+                    <li>✓ Error and throttling CloudWatch alarm configuration.</li>
+                    <li>✓ Encleaned AWS X-Ray distributed tracing.</li>
+                    <li>✓ Applied least-privilege IAM is using the least-privilege policies.</li>
+                    <li>✓ Install API rate limiting and throttling.</li>
+                    <li>✓ Point-in-Time DynamoDB Disaster recovery.</li>
+                    <li>✓ Lambda Scale: Reserved concurrency was on enabled Lamps to avoid runaway costs.</li>
+                    <li>✓ Tested every possible error (expired OTPs, broken inputs, network errors).</li>
+                    <li>✓ Install surveillance boards and notifications.</li>
+                    <li>✓ Published API endpoints and error codes.</li>
+                    <li>✓ Carried out load testing in order to test the behavior of auto-scaling.</li>
                 </ul>
 
-                <h2>Security Concerns and Advanced Best Practices</h2>
+                <h2>Security Concerns and Sophisticated Best Practices</h2>
                 
-                <p>Building a production OTP service requires addressing critical security and cost concerns that can significantly impact your application's reliability and budget.</p>
+                <p>A production OTP service development demands to handle essential security and cost issues that will pose a major challenge to the reliability and cost of your application.</p>
 
                 <h3>SMS Cost Management and Prevention</h3>
                 
-                <p>SMS delivery through Amazon SNS incurs charges that vary significantly by destination country. Without proper controls, malicious actors or bugs can generate unexpected costs.</p>
+                <p>The charges charged through the Amazon SNS in terms of delivering SMS depend strongly on the destination country. Unless there are proper controls, it is possible to incur unexpected costs due to malicious actors or bugs.</p>
 
                 <h4>SMS Pricing Reality Check</h4>
                 <ul>
-                    <li><strong>United States:</strong> $0.00645 per SMS (relatively inexpensive)</li>
+                    <li><strong>United States:</strong> $0.00645 cents/SMS (quite cheap)</li>
                     <li><strong>India:</strong> $0.00425 per SMS</li>
-                    <li><strong>United Kingdom:</strong> $0.04290 per SMS (10x more expensive)</li>
+                    <li><strong>United Kingdom:</strong> $0.04290 /SMS (10 times higher)</li>
                     <li><strong>Germany:</strong> $0.07240 per SMS</li>
                     <li><strong>Kuwait:</strong> $0.11550 per SMS (27x US cost)</li>
                 </ul>
 
-                <p><strong>Cost Scenario:</strong> If an attacker triggers 10,000 SMS messages to Kuwait numbers, your bill would be $1,155—in just minutes.</p>
+                <p><strong>Scenario of Cost:</strong> It would be costs you $1,155 in a minute just in minutes, in case, an attacker sent 10,000 messages to the Kuwait numbers using SMS.</p>
 
                 <h4>Implementing Rate Limiting</h4>
-                <p>Add DynamoDB tracking to prevent SMS abuse:</p>
+                <p>Install DynamoDB monitoring to avoid spamming via SMS:</p>
 
                 <pre><code>import time
 
@@ -1906,7 +1897,7 @@ def verify_recaptcha(token):
     # Continue with normal processing...</code></pre>
 
                 <h2>Conclusion</h2>
-                <p>Using Terraform, you've successfully defined and deployed a fully serverless, scalable, and secure OTP delivery system. This approach leverages AWS API Gateway for exposing endpoints, AWS Lambda for business logic, Amazon SNS for sending SMS, and Amazon DynamoDB for persistent OTP storage with automatic expiration. The entire infrastructure is managed as code, ensuring it is repeatable, version-controlled, and auditable.</p>
+                <p>With Terraform, you have managed to design and deploy a scalable, serverless, and secure system of delivering OTP. This design operates through exposing the endpoints on AWS API Gateway, a business logic on AWS Lambda, an SMS sending service on Amazon SNS, and a persistent storage of OTP on auto-expiry on Amazon DynamoDB. The entire infrastructure is code managed; it is repeatable, versionable, and auditable.</p>
             </div>
         </div>
     </section>
