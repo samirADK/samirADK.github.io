@@ -1075,7 +1075,7 @@ def lambda_handler(event, context):
 </code></pre>
 
                 <h4><code>lambda/verify_otp.py</code></h4>
-                <p><strong>Function Overview:</strong> This is a validation OTP submission. It gets the stored OTP in DynamoDB with the help of the userId, checks whether it is not expired, and compares it with the provided OTP by the user and provides the proper success or failure messages. The function applies the correct HTTP status codes (404-not found, 410-expired, 401- invalid) to inform about the various scenarios of failures.</p>
+                <p><strong>Function Overview:</strong>  This is a validation OTP submission. It retrieves the stored OTP in DynamoDB as assistance of the userId, whether it has not expired and compares the given OTP by the user and gives the appropriate success / failure notification. The function uses appropriate codes of the status of an HTTP (404-not found, 410- expired, 401- invalid) to give information on the different situations of failures.</p>
 <pre><code class="language-python">
 import json
 import boto3
@@ -1158,10 +1158,10 @@ def lambda_handler(event, context):
                 <h3>Step 2: Terraform Configuration</h3>
                 <p>Prepare the following Terraform files in the top of your project.</p>
                 
-                <p>With Terraform, we can easily code our entire infrastructure which is reproducible, versioned and audit-friendly. The setup provides all the resources required of AWS such as DynamoDB tables, Lambda functions, IAM roles with least-privileged permissions, API Gateway endpoints, and the required inter-service connections.</p>
+                <p>Using Terraform we can just code our complete infrastructure and it can be reproducible, auditable and versioned. The configuration gives everything that AWS needs like DynamoDB tables, lambda functions, least-privileged IAM roles, API Gateway endpoints, and the necessary inter-service connections.</p>
 
                 <h4><code>main.tf</code></h4>
-                <p>This file configures all the AWS resources such as the IAM roles and permissions required. Pay attention to how we are using <code>random_id</code> to come up with unique resource names, which would not cause any conflicts in case you are deploying more than one environment. The IAM policies are based on the principle of least privilege, which allows a particular set of permissions, as required by each Lambda function.</p>
+                <p>This file is used to configure all the AWS resources like the IAM roles and permissions that are needed. Note the way in which we are using random name to generate resource names and they would not conflict with each other in the event you are deploying more than one environment. The IAM policies have been founded on the principle of least privilege, the principle entails the granting of a given set of permissions as mandated by each Lambda function.</p>
 <pre><code class="language-hcl">
 provider "aws" {
   region = var.aws_region
@@ -1399,49 +1399,49 @@ output "otp_table_name" {
 </code></pre>
 
                 <h3>Step 3: Deploy the Stack</h3>
-                <p>Before deploying, ensure your Lambda function code is in the <code>lambda</code> directory. The Terraform configuration uses <code>data "archive_file"</code> to zip this directory automatically.</p>
+                <p>Make sure that your Lambda code of operation is found in the lambda folder before deploying. Terraform configuration is able to zip this directory automatically using an archive file, data.</p>
                 <ol>
                     <li>
                         <strong>Initialize Terraform:</strong>
-                        <p>Run this command in the root directory of your project (where your <code>.tf</code> files are):</p>
+                        <p>Enter this command in the first level of your project (initial directory with your <code>.tf</code> files):</p>
                         <pre><code>terraform init</code></pre>
                     </li>
                     <li>
                         <strong>Plan the deployment:</strong>
-                        <p>This will show you what resources Terraform will create.</p>
+                        <p>This will demonstrate what will be created by Terraform.</p>
                         <pre><code>terraform plan</code></pre>
                     </li>
                     <li>
-                        <strong>Apply Terraform configuration:</strong>
-                        <p>This will provision the resources in your AWS account. Confirm by typing <code>yes</code> when prompted.</p>
+                        <strong>Introduction of Terraform configuration:</strong>
+                        <p>This will provision the AWS account of resources. Certify by answering yes by typing it on the screen.</p>
                         <pre><code>terraform apply</code></pre>
                     </li>
                 </ol>
-                <p>After deployment, Terraform will output the API endpoint URLs. You can now make POST requests to:</p>
+                <p>Upon deployment, Terraform will provide the URLs of the endpoints of the API. You are now able to make POSTs to:</p>
                 <ul>
                     <li><code>https://<api-id>.execute-api.<region>.amazonaws.com/send-otp</code>
-                        <br>Request Body: <code>{ "userId": "+11234567890" }</code> (use an E.164 formatted phone number)
+                        <br>Request Body: <code>{ "userId": "+11234567890" }</code> (organize E.164 formatted phone number)
                     </li>
                     <li><code>https://<api-id>.execute-api.<region>.amazonaws.com/verify-otp</code>
                         <br>Request Body: <code>{ "userId": "+11234567890", "otp": "123456" }</code>
                     </li>
                 </ul>
-                 <p>To clean up and remove all created resources, run:</p>
+                 <p>In order to clean up and destroy all created resources, do:</p>
                  <pre><code>terraform destroy</code></pre>
 
                 <h2>Testing and Validation</h2>
-                <p>Proper testing ensures your OTP service functions correctly before production deployment. Here are multiple approaches to test your endpoints:</p>
+                <p>Ensuring your OTP service is later tested properly before production deployment entails that you take this test into consideration. The following are some of the methods of testing your endpoints:</p>
                 
                 <h3>Using cURL (Command Line)</h3>
-                <p>After deploying with Terraform, you'll receive API endpoint URLs in the output. Use these URLs to test with cURL:</p>
+                <p>Upon the execution of the Terraform, the output format will contain API endpoint URLs. Test using cURL, using the following URLs:</p>
                 
-                <h4>1. Send OTP Request</h4>
+                <h4>Send OTP Request</h4>
                 <pre><code>curl -X POST https://your-api-id.execute-api.us-east-1.amazonaws.com/send-otp \<br/>  -H "Content-Type: application/json" \<br/>  -d '{"userId": "+11234567890"}'</code></pre>
                 <p><strong>Expected Response:</strong></p>
                 <pre><code>{"message": "OTP sent successfully"}</code></pre>
-                <p>You should receive an SMS with a 6-digit OTP on the provided phone number.</p>
+                <p>You will be expected to get an SMS containing the 6-digit OTP in the given phone number.</p>
                 
-                <h4>2. Verify OTP Request</h4>
+                <h4>Verify OTP Request</h4>
                 <pre><code>curl -X POST https://your-api-id.execute-api.us-east-1.amazonaws.com/verify-otp \<br/>  -H "Content-Type: application/json" \<br/>  -d '{"userId": "+11234567890", "otp": "123456"}'</code></pre>
                 <p><strong>Expected Response (Valid OTP):</strong></p>
                 <pre><code>{"verified": true, "message": "OTP verified successfully"}</code></pre>
@@ -1449,30 +1449,25 @@ output "otp_table_name" {
                 <pre><code>{"verified": false, "error": "Invalid OTP"}</code></pre>
                 
                 <h3>Using Postman (GUI Tool)</h3>
-                <p>Postman is also easier to interface with:</p>
+                <p>Postman is also simpler to interface:</p>
                 <ol>
-                    <li>Add a new POST message in Postman.</li>
-                    <li>Change the URL to your <code>/send-otp</code> endpoint.</li>
-                    <li>Go to the tab of the body and choose the option of raw and the format of the data to be in JSON.</li>
+                    <li>Insert a new POST message in Postman.</li>
+                    <li>Replace the URL with an otp endpoint of the same.</li>
+                    <li>On the tab of the body, select the option of raw and format of the data to be in the JSON format.</li>
                     <li>Make POST request: <code>{"userId": "+11234567890"}</code></li>
-                    <li>Click the button Send and see the reply.</li>
-                    <li>Do the same with <code>/verify-otp</code> endpoint using with received OTP.</li>
+                    <li>Press the button send and have the response.</li>
+                    <li>Similarly, we should do the same with <code>/verify-otp</code> endpoint with received OTP.</li>
                 </ol>
                 
                 <h3>Testing Edge Cases</h3>
-                <p>General testing must be done on different scenarios:</p>
+                <p>General test on various situations should be carried out:</p>
                 <ul>
-                    <li><strong>Un-Valid Phone number format:</strong> Testing with faulty phone numbers to get the warning messages in order.</li>
-                    <li><strong>Expired OTP:</strong> Wait 5 minutes since the generation of an OTP and then verify (this should fail with the OTP expired error)</li>
-                    <li><strong>Missing Parameters:</strong> Check the error handling by sending requests incomplete.</li>
-                    <li><strong>Bad JSON:</strong> Post bad JSON to check error responses in parsing.</li>
-                    <li><strong>Non-Existent User:</strong> Attempt to verify OTP on a userId that has not requested one non-existent user.</li>
+                    <li><strong>Un-Valid Phone number format:</strong> This is a test of incorrect phone numbers in order to determine the warning messages.</li>
+                    <li><strong>Expired OTP:</strong> Wait 5 minutes after an OTP has been generated and verify (this must fail with the error of OTP expired)</li>
+                    <li><strong>Missing Parameters:</strong> Check the error handling, submit requests with missing parameters.</li>
+                    <li><strong>Bad JSON:</strong> This is used to test the error responses in parsing by running bad JSON.</li>
+                    <li><strong>Non-Existent User:</strong> Trying to check OTP of a userId which does not request OTP non-existent user.</li>
                 </ul>
-                
-                <h3>Monitoring Test Results</h3>
-                <p>verify Lambda executions: Check AWS CloudWatch logs:</p>
-                <pre><code>aws logs tail /aws/lambda/sendOTPFunction-XXXX --follow</code></pre>
-                <p>This command shows you real-time logs which will aid you in debugging any kind of problem that occurs in the course of testing.</p>
 
                 <h2>Best Practices and Error Handling</h2>
                 <p>Error handling, performance optimization and security have to be taken into consideration carefully when building production-ready serverless applications. These are some of the key considerations:</p>
